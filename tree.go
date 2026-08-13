@@ -1,5 +1,9 @@
 package intervaltree
 
+import "math"
+
+const noIdx uint32 = math.MaxUint32
+
 type Node[K any] struct {
 	Start     K
 	End       K
@@ -19,11 +23,12 @@ type IntervalTree[K any] struct {
 	Cmp       CompareFunc[K]
 }
 
-func New[K any](capacity int) IntervalTree[K] {
+func New[K any](capacity int, cmp CompareFunc[K]) IntervalTree[K] {
 	return IntervalTree[K]{
 		Nodes:     make([]Node[K], 0, capacity),
 		FreeIndex: make([]uint32, 0, capacity),
 		RootIdx:   noIdx,
+		Cmp:       cmp,   
 	}
 }
 
@@ -33,8 +38,8 @@ func (t *IntervalTree[K]) Reset() {
 	t.RootIdx = noIdx
 }
 
-func (t *IntervalTree) maxKey[K any](a, b K) K {
-	if t.cmp(a, b) >= 0 {
+func (t *IntervalTree[K]) maxKey(a, b K) K {
+	if t.Cmp(a, b) >= 0 {
 		return a
 	}
 	return b
@@ -53,11 +58,11 @@ func (t *IntervalTree[K]) updateNodeStats(idx uint32) {
 
 	if leftIdx != noIdx {
 		leftH = t.Nodes[leftIdx].Height
-		currMax = maxKey(currMax, t.Nodes[leftIdx].MaxEnd)
+		currMax = t.maxKey(currMax, t.Nodes[leftIdx].MaxEnd)
 	}
 	if rightIdx != noIdx {
 		rightH = t.Nodes[rightIdx].Height
-		currMax = maxKey(currMax, t.Nodes[rightIdx].MaxEnd)
+		currMax = t.maxKey(currMax, t.Nodes[rightIdx].MaxEnd)
 	}
 
 	if leftH > rightH {
@@ -195,7 +200,7 @@ func (t *IntervalTree[K]) CreateNodeAndUpdate(start, end K) {
 	// BST Traversal
 	currentIdx := t.RootIdx
 	for {
-		if t.cmp(start, t.Nodes[currentIdx].Start) < 0 { // start < node.Start
+		if t.Cmp(start, t.Nodes[currentIdx].Start) < 0 { // start < node.Start
 			if t.Nodes[currentIdx].LeftIdx == noIdx {
 				t.Nodes[currentIdx].LeftIdx = newIndex
 				t.Nodes[newIndex].ParentIdx = currentIdx
@@ -228,7 +233,110 @@ func (t *IntervalTree[K]) CreateNodeAndUpdate(start, end K) {
 }
 
 func (t *IntervalTree[K]) DeleteNodeAndUpdate(start, end K) {
-	// TODO: Tree deletion and update operations using start and end
+	var freeIdx uint32
+
+	currentIdx := t.RootIdx
+	for currentIdx != noIdx {
+		if t.Cmp(start, t.Nodes[currentIdx].Start) < 0 {
+			currentIdx = t.Nodes[currentIdx].LeftIdx
+			continue
+		} else if t.Cmp(start, t.Nodes[currentIdx].Start) > 0 {
+			currentIdx = t.Nodes[currentIdx].RightIdx
+			continue
+		} else {
+			if t.Cmp(end, t.Nodes[currentIdx].End) < 0 {
+				currentIdx = t.Nodes[currentIdx].LeftIdx
+				continue
+			} else if t.Cmp(end, t.Nodes[currentIdx].End) > 0 {
+				currentIdx = t.Nodes[currentIdx].RightIdx
+				continue
+			} else {
+				break
+			}
+		}
+	}
+
+	if currentIdx == noIdx {
+   		return
+	}
+
+	parentIdx := t.Nodes[currentIdx].ParentIdx
+
+	if t.Nodes[currentIdx].LeftIdx == noIdx && t.Nodes[currentIdx].RightIdx == noIdx { // Node has no child
+		if parentIdx != noIdx {
+			if t.Nodes[parentIdx].LeftIdx == currentIdx {
+				t.Nodes[parentIdx].LeftIdx = noIdx
+			} else {
+				t.Nodes[parentIdx].RightIdx = noIdx
+			}
+		} else {
+			t.RootIdx = noIdx
+		}
+
+		freeIdx = currentIdx
+	} else if t.Nodes[currentIdx].LeftIdx != noIdx && t.Nodes[currentIdx].RightIdx != noIdx { // Node has two child
+		current := t.Nodes[currentIdx].RightIdx
+
+		for t.Nodes[current].LeftIdx != noIdx {
+			current = t.Nodes[current].LeftIdx
+		}
+
+		successorIdx := current
+		parentIdx = t.Nodes[successorIdx].ParentIdx
+
+		t.Nodes[currentIdx].Start = t.Nodes[successorIdx].Start
+		t.Nodes[currentIdx].End = t.Nodes[successorIdx].End
+
+		if t.Nodes[parentIdx].LeftIdx == successorIdx {
+			t.Nodes[parentIdx].LeftIdx = t.Nodes[successorIdx].RightIdx
+		} else {
+			t.Nodes[parentIdx].RightIdx = t.Nodes[successorIdx].RightIdx
+		}
+
+		if t.Nodes[successorIdx].RightIdx != noIdx {
+			t.Nodes[t.Nodes[successorIdx].RightIdx].ParentIdx = parentIdx
+		}
+
+		freeIdx = successorIdx
+	} else { // Node has one child
+		var childIdx uint32
+
+		if t.Nodes[currentIdx].LeftIdx != noIdx {
+			childIdx = t.Nodes[currentIdx].LeftIdx
+		} else {
+			childIdx = t.Nodes[currentIdx].RightIdx
+		}
+
+		if parentIdx != noIdx {
+			t.Nodes[childIdx].ParentIdx = parentIdx
+
+			if t.Nodes[parentIdx].LeftIdx == currentIdx {
+				t.Nodes[parentIdx].LeftIdx = childIdx
+			} else {
+				t.Nodes[parentIdx].RightIdx = childIdx
+			}
+		} else {
+			t.Nodes[childIdx].ParentIdx = noIdx
+			t.RootIdx = childIdx
+		}
+
+		freeIdx = currentIdx
+	}
+
+	t.FreeIndex = append(t.FreeIndex, freeIdx)
+
+	updateIdx := parentIdx
+	for updateIdx != noIdx {
+		t.updateNodeStats(updateIdx)
+
+		balance := t.getBalance(updateIdx)
+
+		if balance > 1 || balance < -1 {
+			updateIdx = t.rebalance(updateIdx, balance)
+		}
+
+		updateIdx = t.Nodes[updateIdx].ParentIdx
+	}
 }
 
 func (t *IntervalTree[K]) ExactMatch(start, end K) bool {
@@ -246,19 +354,43 @@ func (t *IntervalTree[K]) ContainsOrCovers(start, end K) bool {
 }
 
 func (t *IntervalTree[K]) FindOverlaps(start, end K) (starts []K, ends []K) {
-	var starts []K
-    var ends []K
-
 	// TODO: Range search for all overlapping intervals
 	return starts, ends
 }
 
 func (t *IntervalTree[K]) IntersectForAdd(start, end K) (delStarts, delEnds []K, mergedStart, mergedEnd K, isIntersect bool) {
 	// TODO
-	return nil, nil, nil, nil, false
+	return delStarts, delEnds, mergedStart, mergedEnd, false
 }
 
 func (t *IntervalTree[K]) IntersectForDelete(start, end K) (delStarts, delEnds []K, addStarts, addEnds []K, isIntersect bool) {
 	// TODO
-	return nil, nil, nil, nil, false
+	return delStarts, delEnds, addStarts, addEnds, false
+}
+
+// AllElements traverses the tree in-order and returns two parallel slices for all active ranges (starts, ends).
+func (t *IntervalTree[K]) AllElements() (starts []K, ends []K) {
+	if t.RootIdx == noIdx {
+		return nil, nil
+	}
+
+	capacity := len(t.Nodes) - len(t.FreeIndex)
+	starts = make([]K, 0, capacity)
+	ends = make([]K, 0, capacity)
+
+	var inOrder func(idx uint32)
+	inOrder = func(idx uint32) {
+		if idx == noIdx {
+			return
+		}
+		inOrder(t.Nodes[idx].LeftIdx)
+
+		starts = append(starts, t.Nodes[idx].Start)
+		ends = append(ends, t.Nodes[idx].End)
+
+		inOrder(t.Nodes[idx].RightIdx)
+	}
+
+	inOrder(t.RootIdx)
+	return starts, ends
 }
