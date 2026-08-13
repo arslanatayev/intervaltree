@@ -1,14 +1,56 @@
 package intervaltree
 
+// cmpInterval compares two intervals [s1, e1] and [s2, e2].
+func (t *IntervalTree[K]) cmpInterval(s1, e1, s2, e2 K) int {
+	if cmp := t.Cmp(s1, s2); cmp != 0 {
+		return cmp
+	}
+	return t.Cmp(e1, e2)
+}
+
 // ExactMatch traverses the tree to determine if an interval matching [start, end] exactly exists.
 func (t *IntervalTree[K]) ExactMatch(start, end K) bool {
-	// TODO: Tree traversal for exact equality check
+	currentIdx := t.RootIdx
+	for currentIdx != noIdx {
+		cmp := t.cmpInterval(start, end, t.Nodes[currentIdx].Start, t.Nodes[currentIdx].End)
+		if cmp < 0 {
+			currentIdx = t.Nodes[currentIdx].LeftIdx
+		} else if cmp > 0 {
+			currentIdx = t.Nodes[currentIdx].RightIdx
+		} else {
+			return true
+		}
+	}
+
 	return false
 }
 
 // Contains checks if there exists any node in the tree that completely encompasses the given [start, end] range.
 func (t *IntervalTree[K]) Contains(start, end K) bool {
-	// TODO: Tree traversal for containment
+	return t.containsHelper(t.RootIdx, start, end)
+}
+
+func (t *IntervalTree[K]) containsHelper(idx uint32, start, end K) bool {
+	if idx == noIdx {
+		return false
+	}
+
+	if t.Cmp(t.Nodes[idx].MaxEnd, end) < 0 {
+		return false
+	}
+
+	if t.Cmp(t.Nodes[idx].Start, start) <= 0 && t.Cmp(end, t.Nodes[idx].End) <= 0 {
+		return true
+	}
+
+	if t.containsHelper(t.Nodes[idx].LeftIdx, start, end) {
+		return true
+	}
+
+	if t.Cmp(t.Nodes[idx].Start, start) <= 0 {
+		return t.containsHelper(t.Nodes[idx].RightIdx, start, end)
+	}
+
 	return false
 }
 
