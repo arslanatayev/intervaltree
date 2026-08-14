@@ -19,6 +19,8 @@ type Node[K any] struct {
 // CompareFunc defines a 3-way comparison logic between two keys 'a' and 'b'.
 // It returns a negative integer if a < b, zero if a == b, or a positive integer if a > b.
 type CompareFunc[K any] func(a, b K) int
+type NextFunc[K any] func(a K) K
+type PrevFunc[K any] func(a K) K
 
 // IntervalTree represents a memory-efficient, slice-backed AVL interval tree.
 type IntervalTree[K any] struct {
@@ -26,15 +28,19 @@ type IntervalTree[K any] struct {
 	FreeIndex []uint32
 	RootIdx   uint32
 	Cmp       CompareFunc[K]
+	Next      NextFunc[K]
+	Prev      PrevFunc[K]
 }
 
 // New constructs and initializes a new IntervalTree with a pre-allocated memory capacity.
-func New[K any](capacity int, cmp CompareFunc[K]) IntervalTree[K] {
+func New[K any](capacity int, cmp CompareFunc[K], prev PrevFunc[K], next NextFunc[K]) IntervalTree[K] {
 	return IntervalTree[K]{
 		Nodes:     make([]Node[K], 0, capacity),
 		FreeIndex: make([]uint32, 0, capacity),
 		RootIdx:   noIdx,
 		Cmp:       cmp,
+		Next:      next,
+		Prev:      prev,
 	}
 }
 

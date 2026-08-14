@@ -105,6 +105,7 @@ func (t *IntervalTree[K]) FindOverlaps(start, end K) (starts []K, ends []K) {
 }
 
 // AllElements traverses the tree in-order and returns two parallel slices containing the start and end keys of all active intervals.
+// It uses an iterative stack to achieve zero-allocation traversal without recursion overhead.
 func (t *IntervalTree[K]) AllElements() (starts []K, ends []K) {
 	if t.RootIdx == noIdx {
 		return nil, nil
@@ -114,19 +115,25 @@ func (t *IntervalTree[K]) AllElements() (starts []K, ends []K) {
 	starts = make([]K, 0, capacity)
 	ends = make([]K, 0, capacity)
 
-	var inOrder func(idx uint32)
-	inOrder = func(idx uint32) {
-		if idx == noIdx {
-			return
+	var stack [64]uint32
+	stackIdx := 0
+	currentIdx := t.RootIdx
+
+	for currentIdx != noIdx || stackIdx > 0 {
+		for currentIdx != noIdx {
+			stack[stackIdx] = currentIdx
+			stackIdx++
+			currentIdx = t.Nodes[currentIdx].LeftIdx
 		}
-		inOrder(t.Nodes[idx].LeftIdx)
 
-		starts = append(starts, t.Nodes[idx].Start)
-		ends = append(ends, t.Nodes[idx].End)
+		stackIdx--
+		currentIdx = stack[stackIdx]
 
-		inOrder(t.Nodes[idx].RightIdx)
+		starts = append(starts, t.Nodes[currentIdx].Start)
+		ends = append(ends, t.Nodes[currentIdx].End)
+
+		currentIdx = t.Nodes[currentIdx].RightIdx
 	}
 
-	inOrder(t.RootIdx)
 	return starts, ends
 }
