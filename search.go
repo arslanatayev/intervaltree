@@ -26,42 +26,81 @@ func (t *IntervalTree[K]) ExactMatch(start, end K) bool {
 }
 
 // Contains checks if there exists any node in the tree that completely encompasses the given [start, end] range.
+// It uses an iterative stack with MaxEnd pruning for maximum performance.
 func (t *IntervalTree[K]) Contains(start, end K) bool {
-	return t.containsHelper(t.RootIdx, start, end)
-}
-
-func (t *IntervalTree[K]) containsHelper(idx uint32, start, end K) bool {
-	if idx == noIdx {
+	if t.RootIdx == noIdx {
 		return false
 	}
 
-	if t.Cmp(t.Nodes[idx].MaxEnd, end) < 0 {
-		return false
-	}
+	var stack [64]uint32
+	stack[0] = t.RootIdx
+	stackIdx := 1
 
-	if t.Cmp(t.Nodes[idx].Start, start) <= 0 && t.Cmp(end, t.Nodes[idx].End) <= 0 {
-		return true
-	}
+	for stackIdx > 0 {
+		stackIdx--
+		currentIdx := stack[stackIdx]
+		node := &t.Nodes[currentIdx]
 
-	if t.containsHelper(t.Nodes[idx].LeftIdx, start, end) {
-		return true
-	}
+		if t.Cmp(node.MaxEnd, end) < 0 {
+			continue
+		}
 
-	if t.Cmp(t.Nodes[idx].Start, start) <= 0 {
-		return t.containsHelper(t.Nodes[idx].RightIdx, start, end)
+		if t.Cmp(node.Start, start) <= 0 && t.Cmp(end, node.End) <= 0 {
+			return true
+		}
+
+		if t.Cmp(node.Start, start) <= 0 && node.RightIdx != noIdx {
+			stack[stackIdx] = node.RightIdx
+			stackIdx++
+		}
+
+		if node.LeftIdx != noIdx {
+			stack[stackIdx] = node.LeftIdx
+			stackIdx++
+		}
 	}
 
 	return false
 }
 
-// ContainsOrCovers returns true if the interval [start, end] matches an existing node exactly or is fully encompassed by one.
-func (t *IntervalTree[K]) ContainsOrCovers(start, end K) bool {
-	return t.ExactMatch(start, end) || t.Contains(start, end)
-}
-
 // FindOverlaps searches the tree and returns all intervals that overlap with the query range [start, end].
 func (t *IntervalTree[K]) FindOverlaps(start, end K) (starts []K, ends []K) {
-	// TODO: Range search for all overlapping intervals
+	if t.RootIdx == noIdx {
+		return starts, ends
+	}
+
+	var stack [64]uint32
+	stack[0] = t.RootIdx
+	stackIdx := 1
+
+	starts = make([]K, 0, 8)
+	ends = make([]K, 0, 8)
+
+	for stackIdx > 0 {
+		stackIdx--
+		currentIdx := stack[stackIdx]
+		node := &t.Nodes[currentIdx]
+
+		if t.Cmp(node.MaxEnd, start) < 0 {
+			continue
+		}
+
+		if t.Cmp(node.Start, end) <= 0 && t.Cmp(start, node.End) <= 0 {
+			starts = append(starts, node.Start)
+			ends = append(ends, node.End)
+		}
+
+		if t.Cmp(node.Start, end) <= 0 && node.RightIdx != noIdx {
+			stack[stackIdx] = node.RightIdx
+			stackIdx++
+		}
+
+		if node.LeftIdx != noIdx {
+			stack[stackIdx] = node.LeftIdx
+			stackIdx++
+		}
+	}
+
 	return starts, ends
 }
 
