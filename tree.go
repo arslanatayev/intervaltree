@@ -51,6 +51,14 @@ func (t *IntervalTree[K]) Reset() {
 	t.RootIdx = noIdx
 }
 
+// cmpInterval compares two intervals [s1, e1] and [s2, e2].
+func (t *IntervalTree[K]) cmpInterval(s1, e1, s2, e2 K) int {
+	if cmp := t.Cmp(s1, s2); cmp != 0 {
+		return cmp
+	}
+	return t.Cmp(e1, e2)
+}
+
 // maxKey compares two keys 'a' and 'b' and returns the greater key based on the configured comparison function.
 func (t *IntervalTree[K]) maxKey(a, b K) K {
 	if t.Cmp(a, b) >= 0 {

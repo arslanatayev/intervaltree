@@ -34,14 +34,15 @@ func (t *IntervalTree[K]) Insert(start, end K) {
 	// BST Traversal
 	currentIdx := t.RootIdx
 	for {
-		if t.Cmp(start, t.Nodes[currentIdx].Start) < 0 { // start < node.Start
+		cmp := t.cmpInterval(start, end, t.Nodes[currentIdx].Start, t.Nodes[currentIdx].End)
+		if cmp < 0 {
 			if t.Nodes[currentIdx].LeftIdx == noIdx {
 				t.Nodes[currentIdx].LeftIdx = newIndex
 				t.Nodes[newIndex].ParentIdx = currentIdx
 				break
 			}
 			currentIdx = t.Nodes[currentIdx].LeftIdx
-		} else { // start >= node.Start
+		} else {
 			if t.Nodes[currentIdx].RightIdx == noIdx {
 				t.Nodes[currentIdx].RightIdx = newIndex
 				t.Nodes[newIndex].ParentIdx = currentIdx
@@ -73,22 +74,13 @@ func (t *IntervalTree[K]) Delete(start, end K) {
 
 	currentIdx := t.RootIdx
 	for currentIdx != noIdx {
-		if t.Cmp(start, t.Nodes[currentIdx].Start) < 0 {
+		cmp := t.cmpInterval(start, end, t.Nodes[currentIdx].Start, t.Nodes[currentIdx].End)
+		if cmp < 0 {
 			currentIdx = t.Nodes[currentIdx].LeftIdx
-			continue
-		} else if t.Cmp(start, t.Nodes[currentIdx].Start) > 0 {
+		} else if cmp > 0 {
 			currentIdx = t.Nodes[currentIdx].RightIdx
-			continue
 		} else {
-			if t.Cmp(end, t.Nodes[currentIdx].End) < 0 {
-				currentIdx = t.Nodes[currentIdx].LeftIdx
-				continue
-			} else if t.Cmp(end, t.Nodes[currentIdx].End) > 0 {
-				currentIdx = t.Nodes[currentIdx].RightIdx
-				continue
-			} else {
-				break
-			}
+			break
 		}
 	}
 
