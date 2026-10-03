@@ -181,9 +181,31 @@ func (t *IntervalTree[K]) rebalance(xIdx uint32, balance int) uint32 {
 		return t.rotateRight(xIdx)
 	}
 
-	rightIdx := t.Nodes[xIdx].RightIdx
-	if t.getBalance(rightIdx) > 0 {
-		t.rotateRight(rightIdx)
+	if balance < -1 {
+		rightIdx := t.Nodes[xIdx].RightIdx
+		if t.getBalance(rightIdx) > 0 {
+			t.rotateRight(rightIdx)
+		}
+		return t.rotateLeft(xIdx)
 	}
-	return t.rotateLeft(xIdx)
+	return xIdx
+}
+
+// Clone creates a fast, deep copy of the IntervalTree, duplicating the underlying
+// node and free-index slices while preserving the structural state and function pointers.
+func (t *IntervalTree[K]) Clone() IntervalTree[K] {
+	nodes := make([]Node[K], len(t.Nodes), cap(t.Nodes))
+	copy(nodes, t.Nodes)
+
+	freeIndex := make([]uint32, len(t.FreeIndex), cap(t.FreeIndex))
+	copy(freeIndex, t.FreeIndex)
+
+	return IntervalTree[K]{
+		Nodes:     nodes,
+		FreeIndex: freeIndex,
+		RootIdx:   t.RootIdx,
+		Cmp:       t.Cmp,
+		Next:      t.Next,
+		Prev:      t.Prev,
+	}
 }

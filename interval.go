@@ -29,7 +29,7 @@ func (t *IntervalTree[K]) IntersectForAdd(start, end K) (delStarts, delEnds []K,
 
 // IntersectForDelete evaluates a deletion target [start, end] against overlapping intervals in the tree.
 // It determines which existing intervals must be removed and calculates residual range fragments to be added back.
-func (t *IntervalTree[K]) IntersectForDelete(start, end K) (delStarts, delEnds []K, addStarts, addEnds []K, isIntersect bool) {
+func (t *IntervalTree[K]) IntersectForDelete(start, end K) (delStarts, delEnds, addStarts, addEnds []K, isIntersect bool) {
 	starts, ends := t.FindOverlaps(start, end)
 
 	if len(starts) == 0 {

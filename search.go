@@ -1,14 +1,26 @@
 package intervaltree
 
+import (
+	"log"
+)
+
 // ExactMatch traverses the tree to determine if an interval matching [start, end] exactly exists.
 func (t *IntervalTree[K]) ExactMatch(start, end K) bool {
 	currentIdx := t.RootIdx
+	nodesLen := uint32(len(t.Nodes))
+
 	for currentIdx != noIdx {
-		cmp := t.cmpInterval(start, end, t.Nodes[currentIdx].Start, t.Nodes[currentIdx].End)
+		if currentIdx >= nodesLen {
+			log.Printf("index is out of range: current index %d, length of tree nodes %d", currentIdx, nodesLen)
+			return false
+		}
+
+		node := &t.Nodes[currentIdx]
+		cmp := t.cmpInterval(start, end, node.Start, node.End)
 		if cmp < 0 {
-			currentIdx = t.Nodes[currentIdx].LeftIdx
+			currentIdx = node.LeftIdx
 		} else if cmp > 0 {
-			currentIdx = t.Nodes[currentIdx].RightIdx
+			currentIdx = node.RightIdx
 		} else {
 			return true
 		}

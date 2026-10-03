@@ -42,13 +42,20 @@ func (t *IntervalTree[K]) Insert(start, end K) {
 				break
 			}
 			currentIdx = t.Nodes[currentIdx].LeftIdx
-		} else {
+		} else if cmp > 0 {
 			if t.Nodes[currentIdx].RightIdx == noIdx {
 				t.Nodes[currentIdx].RightIdx = newIndex
 				t.Nodes[newIndex].ParentIdx = currentIdx
 				break
 			}
 			currentIdx = t.Nodes[currentIdx].RightIdx
+		} else {
+			if len(t.FreeIndex) > 0 {
+				t.FreeIndex = append(t.FreeIndex, newIndex)
+			} else {
+				t.Nodes = t.Nodes[:len(t.Nodes)-1]
+			}
+			return
 		}
 	}
 
@@ -151,6 +158,17 @@ func (t *IntervalTree[K]) Delete(start, end K) {
 		freeIdx = currentIdx
 	}
 
+	var noVal K
+
+	t.Nodes[freeIdx] = Node[K]{
+		Start:     noVal,
+		End:       noVal,
+		MaxEnd:    noVal,
+		LeftIdx:   noIdx,
+		RightIdx:  noIdx,
+		ParentIdx: noIdx,
+		Height:    0,
+	}
 	t.FreeIndex = append(t.FreeIndex, freeIdx)
 
 	updateIdx := parentIdx
