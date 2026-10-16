@@ -1,13 +1,16 @@
 package intervaltree
 
-// IntersectForAdd evaluates an incoming interval [start, end] against existing rules in the tree.
-// It identifies overlapping intervals to be deleted and calculates a single merged interval [mergedStart, mergedEnd] for insertion.
+// IntersectForAdd finds overlapping intervals to remove and computes a single merged range for the new addition.
 func (t *IntervalTree[K]) IntersectForAdd(start, end K) (delStarts, delEnds []K, mergedStart, mergedEnd K, isIntersect bool) {
 	starts, ends := t.FindOverlaps(t.Prev(start), t.Next(end))
 
 	if len(starts) == 0 {
  	   return nil, nil, start, end, false
 	}
+
+	l := len(starts)
+	delStarts = make([]K, 0, l)
+	delEnds = make([]K, 0, l)
 
 	newStart := start
 	newEnd := end
@@ -27,8 +30,7 @@ func (t *IntervalTree[K]) IntersectForAdd(start, end K) (delStarts, delEnds []K,
 	return delStarts, delEnds, newStart, newEnd, true
 }
 
-// IntersectForDelete evaluates a deletion target [start, end] against overlapping intervals in the tree.
-// It determines which existing intervals must be removed and calculates residual range fragments to be added back.
+// IntersectForDelete detects intervals to delete and calculates any remaining fragment parts to be re-added.
 func (t *IntervalTree[K]) IntersectForDelete(start, end K) (delStarts, delEnds, addStarts, addEnds []K, isIntersect bool) {
 	starts, ends := t.FindOverlaps(start, end)
 
@@ -36,6 +38,12 @@ func (t *IntervalTree[K]) IntersectForDelete(start, end K) (delStarts, delEnds, 
 		return nil, nil, nil, nil, false
 	}
 
+	l := len(starts)
+	delStarts = make([]K, 0, l)
+	delEnds = make([]K, 0, l)
+	addStarts = make([]K, 0, l*2)
+	addEnds = make([]K, 0, l*2)
+	
 	for i := range starts {
     	delStarts = append(delStarts, starts[i])
     	delEnds = append(delEnds, ends[i])

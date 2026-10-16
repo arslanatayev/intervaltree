@@ -1,3 +1,3 @@
-module github.com/getrootwall/intervaltree
+module github.com/arslanatayev/intervaltree
 
 go 1.24.4

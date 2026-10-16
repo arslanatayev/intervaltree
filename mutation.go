@@ -5,6 +5,8 @@ package intervaltree
 // and rebalances the tree bottom-up along the insertion path.
 func (t *IntervalTree[K]) Insert(start, end K) {
 	var newIndex uint32
+	var isLeft bool
+
 	newNode := Node[K]{
 		Start:     start,
 		End:       end,
@@ -15,19 +17,9 @@ func (t *IntervalTree[K]) Insert(start, end K) {
 		ParentIdx: noIdx,
 	}
 
-	if len(t.FreeIndex) > 0 {
-		lastIdx := len(t.FreeIndex) - 1
-		newIndex = t.FreeIndex[lastIdx]
-		t.FreeIndex = t.FreeIndex[:lastIdx]
-		t.Nodes[newIndex] = newNode
-	} else {
-		newIndex = uint32(len(t.Nodes))
-		t.Nodes = append(t.Nodes, newNode)
-	}
-
 	// Root control
 	if t.RootIdx == noIdx {
-		t.RootIdx = newIndex
+		t.RootIdx = t.allocadeNode(newNode)
 		return
 	}
 
@@ -37,27 +29,30 @@ func (t *IntervalTree[K]) Insert(start, end K) {
 		cmp := t.cmpInterval(start, end, t.Nodes[currentIdx].Start, t.Nodes[currentIdx].End)
 		if cmp < 0 {
 			if t.Nodes[currentIdx].LeftIdx == noIdx {
-				t.Nodes[currentIdx].LeftIdx = newIndex
-				t.Nodes[newIndex].ParentIdx = currentIdx
+				isLeft = true
 				break
 			}
 			currentIdx = t.Nodes[currentIdx].LeftIdx
 		} else if cmp > 0 {
 			if t.Nodes[currentIdx].RightIdx == noIdx {
-				t.Nodes[currentIdx].RightIdx = newIndex
-				t.Nodes[newIndex].ParentIdx = currentIdx
+				isLeft = false
 				break
 			}
 			currentIdx = t.Nodes[currentIdx].RightIdx
 		} else {
-			if len(t.FreeIndex) > 0 {
-				t.FreeIndex = append(t.FreeIndex, newIndex)
-			} else {
-				t.Nodes = t.Nodes[:len(t.Nodes)-1]
-			}
 			return
 		}
 	}
+
+	newIndex = t.allocadeNode(newNode)
+
+	if isLeft {
+		t.Nodes[currentIdx].LeftIdx = newIndex
+	} else {
+		t.Nodes[currentIdx].RightIdx = newIndex
+	}
+
+	t.Nodes[newIndex].ParentIdx = currentIdx
 
 	// Bottom-Up MaxEnd Update And Balance
 	updateIdx := newIndex
@@ -72,6 +67,21 @@ func (t *IntervalTree[K]) Insert(start, end K) {
 
 		updateIdx = t.Nodes[updateIdx].ParentIdx
 	}
+}
+
+// allocadeNode allocates a new node either by reusing an index from the FreeIndex pool 
+// or by appending to the Nodes slice if no recycled indices are available.
+func (t *IntervalTree[K]) allocadeNode(newNode Node[K]) uint32 {
+	if len(t.FreeIndex) > 0 {
+		lastIdx := len(t.FreeIndex) - 1
+		idx := t.FreeIndex[lastIdx]
+		t.FreeIndex = t.FreeIndex[:lastIdx]
+		t.Nodes[idx] = newNode
+		return idx
+	}
+	idx := uint32(len(t.Nodes))
+	t.Nodes = append(t.Nodes, newNode)
+	return idx
 }
 
 // Delete removes the node that exactly matches the interval [start, end].
