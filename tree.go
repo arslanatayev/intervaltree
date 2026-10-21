@@ -1,3 +1,5 @@
+// Package intervaltree implements a high-performance, memory-efficient,
+// pointer-free AVL interval tree backed by a flat contiguous slice.
 package intervaltree
 
 import "math"
@@ -19,7 +21,11 @@ type Node[K any] struct {
 // CompareFunc defines a 3-way comparison logic between two keys 'a' and 'b'.
 // It returns a negative integer if a < b, zero if a == b, or a positive integer if a > b.
 type CompareFunc[K any] func(a, b K) int
+
+// NextFunc returns the immediate successor of a key (e.g., a + 1 for integers).
 type NextFunc[K any] func(a K) K
+
+// PrevFunc returns the immediate predecessor of a key (e.g., a - 1 for integers).
 type PrevFunc[K any] func(a K) K
 
 // IntervalTree represents a memory-efficient, slice-backed AVL interval tree.
@@ -33,8 +39,8 @@ type IntervalTree[K any] struct {
 }
 
 // New constructs and initializes a new IntervalTree with a pre-allocated memory capacity.
-func New[K any](capacity int, cmp CompareFunc[K], prev PrevFunc[K], next NextFunc[K]) IntervalTree[K] {
-	return IntervalTree[K]{
+func New[K any](capacity int, cmp CompareFunc[K], prev PrevFunc[K], next NextFunc[K]) *IntervalTree[K] {
+	return &IntervalTree[K]{
 		Nodes:     make([]Node[K], 0, capacity),
 		FreeIndex: make([]uint32, 0, capacity),
 		RootIdx:   noIdx,
@@ -193,14 +199,14 @@ func (t *IntervalTree[K]) rebalance(xIdx uint32, balance int) uint32 {
 
 // Clone creates a fast, deep copy of the IntervalTree, duplicating the underlying
 // node and free-index slices while preserving the structural state and function pointers.
-func (t *IntervalTree[K]) Clone() IntervalTree[K] {
+func (t *IntervalTree[K]) Clone() *IntervalTree[K] {
 	nodes := make([]Node[K], len(t.Nodes), cap(t.Nodes))
 	copy(nodes, t.Nodes)
 
 	freeIndex := make([]uint32, len(t.FreeIndex), cap(t.FreeIndex))
 	copy(freeIndex, t.FreeIndex)
 
-	return IntervalTree[K]{
+	return &IntervalTree[K]{
 		Nodes:     nodes,
 		FreeIndex: freeIndex,
 		RootIdx:   t.RootIdx,

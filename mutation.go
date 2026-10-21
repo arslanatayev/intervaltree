@@ -3,6 +3,7 @@ package intervaltree
 // Insert inserts a new interval [start, end] into the tree.
 // It reuses a recycled node index from FreeIndex if available, otherwise appends a new node,
 // and rebalances the tree bottom-up along the insertion path.
+// Precondition: start <= end
 func (t *IntervalTree[K]) Insert(start, end K) {
 	var newIndex uint32
 	var isLeft bool
@@ -19,7 +20,7 @@ func (t *IntervalTree[K]) Insert(start, end K) {
 
 	// Root control
 	if t.RootIdx == noIdx {
-		t.RootIdx = t.allocadeNode(newNode)
+		t.RootIdx = t.allocateNode(newNode)
 		return
 	}
 
@@ -44,7 +45,7 @@ func (t *IntervalTree[K]) Insert(start, end K) {
 		}
 	}
 
-	newIndex = t.allocadeNode(newNode)
+	newIndex = t.allocateNode(newNode)
 
 	if isLeft {
 		t.Nodes[currentIdx].LeftIdx = newIndex
@@ -69,9 +70,9 @@ func (t *IntervalTree[K]) Insert(start, end K) {
 	}
 }
 
-// allocadeNode allocates a new node either by reusing an index from the FreeIndex pool 
+// allocateNode allocates a new node either by reusing an index from the FreeIndex pool
 // or by appending to the Nodes slice if no recycled indices are available.
-func (t *IntervalTree[K]) allocadeNode(newNode Node[K]) uint32 {
+func (t *IntervalTree[K]) allocateNode(newNode Node[K]) uint32 {
 	if len(t.FreeIndex) > 0 {
 		lastIdx := len(t.FreeIndex) - 1
 		idx := t.FreeIndex[lastIdx]
@@ -102,7 +103,7 @@ func (t *IntervalTree[K]) Delete(start, end K) {
 	}
 
 	if currentIdx == noIdx {
-   		return
+		return
 	}
 
 	parentIdx := t.Nodes[currentIdx].ParentIdx

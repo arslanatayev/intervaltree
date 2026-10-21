@@ -24,9 +24,9 @@ func (t *IntervalTree[K]) ExactMatch(start, end K) bool {
 	return false
 }
 
-// Contains checks if there exists any node in the tree that completely encompasses the given [start, end] range.
+// Covers checks if there exists any node in the tree that completely encompasses the given [start, end] range.
 // It uses an iterative stack with MaxEnd pruning for maximum performance.
-func (t *IntervalTree[K]) Contains(start, end K) bool {
+func (t *IntervalTree[K]) Covers(start, end K) bool {
 	if t.RootIdx == noIdx {
 		return false
 	}
@@ -103,9 +103,9 @@ func (t *IntervalTree[K]) FindOverlaps(start, end K) (starts []K, ends []K) {
 	return starts, ends
 }
 
-// AllElements traverses the tree in-order and returns two parallel slices containing the start and end keys of all active intervals.
+// All traverses the tree in-order and returns two parallel slices containing the start and end keys of all active intervals.
 // It uses an iterative stack to achieve zero-allocation traversal without recursion overhead.
-func (t *IntervalTree[K]) AllElements() (starts []K, ends []K) {
+func (t *IntervalTree[K]) All() (starts []K, ends []K) {
 	if t.RootIdx == noIdx {
 		return nil, nil
 	}
