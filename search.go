@@ -136,3 +136,18 @@ func (t *IntervalTree[K]) All() (starts []K, ends []K) {
 
 	return starts, ends
 }
+
+// IsEmpty returns true if the tree contains no intervals.
+func (t *IntervalTree[K]) IsEmpty() bool {
+	return t.RootIdx == noIdx
+}
+
+// Len returns the number of active intervals currently stored in the tree.
+func (t *IntervalTree[K]) Len() int {
+	return len(t.Nodes) - len(t.FreeIndex)
+}
+
+// Stabs returns all intervals that contain the given point.
+func (t *IntervalTree[K]) Stabs(point K) (starts, ends []K) {
+	return t.FindOverlaps(point, point)
+}
