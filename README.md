@@ -146,7 +146,35 @@ Memory: [ Node 0 | Node 1 | Node 2 | Node 3 | ... ] (Flat, cache-local slice)
 2. Compact 32-bit Indices: Nodes reference children and parents via `uint32` indices instead of 64-bit machine pointers, saving 50% memory on pointer fields.
 3. Internal Memory Pool: Deleted slots are placed on a LIFO free list (`FreeIndex`) and repurposed immediately on subsequent inserts.
 
-## Concurrency Note
+
+## Important Notes
+
+### Boundary Safety in Custom Next/Prev Functions
+The tree relies on your custom `Next` and `Prev` functions for discrete interval logic (e.g., in `ComputeMerge` and `ComputeSplit`). **The library does not perform boundary checks on arithmetic operations inside these functions.**
+
+To avoid integer overflow/underflow or panics when reaching domain extremes (e.g., `math.MaxInt` or `math.MinInt`), you must handle boundary checks within your supplied callbacks:
+
+```go
+// Example: Safe Prev/Next functions for int
+tree := intervaltree.New[int](
+    1024,
+    cmp.Compare[int],
+    func(v int) int {
+        if v == math.MinInt {
+            return v // Prevent underflow
+        }
+        return v - 1
+    },
+    func(v int) int {
+        if v == math.MaxInt {
+            return v // Prevent overflow
+        }
+        return v + 1
+    },
+)
+```
+
+### Concurrency
 
 Like Go standard library container types (`container/list`, `map`), `IntervalTree` is not thread-safe by default. If concurrent read/write access is required, protect instances with a `sync.RWMutex`:
 
