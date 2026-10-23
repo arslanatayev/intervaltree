@@ -94,9 +94,9 @@ func main() {
 
 ## Interval Computation Features
 
-intervaltree includes discrete interval utilities to calculate range mutations prior to applying them:
+`intervaltree` includes discrete interval utilities to calculate range mutations prior to applying them:
 
-## Interval Merging (ComputeMerge)
+## Interval Merging (`ComputeMerge`)
 
 Computes merged bounding intervals for inserting adjacent or overlapping segments without redundant nodes:
 
@@ -112,7 +112,7 @@ if ok {
 }
 ```
 
-## Interval Splitting / Punch-Hole (ComputeSplit)
+## Interval Splitting / Punch-Hole (`ComputeSplit`)
 
 Computes necessary cuts and fragment ranges when punching an interval hole through existing sets:
 
@@ -130,7 +130,7 @@ if ok {
 
 ## Architecture
 
-Traditional balanced trees allocate each node independently on the heap (*Node), introducing pointer overhead and memory fragmentation:
+Traditional balanced trees allocate each node independently on the heap (`*Node`), introducing pointer overhead and memory fragmentation:
 
 ```text
 Traditional Tree:
@@ -143,12 +143,12 @@ Memory: [ Node 0 | Node 1 | Node 2 | Node 3 | ... ] (Flat, cache-local slice)
 ```
 
 1. Flat Memory Layout: All nodes reside in a single contiguous slice.
-2. Compact 32-bit Indices: Nodes reference children and parents via uint32 indices instead of 64-bit machine pointers, saving 50% memory on pointer fields.
-3. Internal Memory Pool: Deleted slots are placed on a LIFO free list (FreeIndex) and repurposed immediately on subsequent inserts.
+2. Compact 32-bit Indices: Nodes reference children and parents via `uint32` indices instead of 64-bit machine pointers, saving 50% memory on pointer fields.
+3. Internal Memory Pool: Deleted slots are placed on a LIFO free list (`FreeIndex`) and repurposed immediately on subsequent inserts.
 
 ## Concurrency Note
 
-Like Go standard library container types (container/list, map), IntervalTree is not thread-safe by default. If concurrent read/write access is required, protect instances with a sync.RWMutex:
+Like Go standard library container types (`container/list`, `map`), `IntervalTree` is not thread-safe by default. If concurrent read/write access is required, protect instances with a `sync.RWMutex`:
 
 ```go
 type SafeTree[K any] struct {
