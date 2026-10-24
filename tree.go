@@ -9,8 +9,7 @@ const noIdx uint32 = math.MaxUint32
 
 // Node represents a single interval element stored within a contiguous slice backing the tree.
 type Node[K any] struct {
-	Start     K
-	End       K
+	Interval[K]
 	MaxEnd    K
 	LeftIdx   uint32
 	RightIdx  uint32
@@ -27,6 +26,12 @@ type NextFunc[K any] func(a K) K
 
 // PrevFunc returns the immediate predecessor of a key (e.g., a - 1 for integers).
 type PrevFunc[K any] func(a K) K
+
+// Interval represents a closed bounded range [Start, End] where Start <= End.
+type Interval[K any] struct {
+	Start K
+	End   K
+}
 
 // IntervalTree represents a memory-efficient, slice-backed AVL interval tree.
 type IntervalTree[K any] struct {
@@ -57,12 +62,12 @@ func (t *IntervalTree[K]) Reset() {
 	t.RootIdx = noIdx
 }
 
-// cmpInterval compares two intervals [s1, e1] and [s2, e2].
-func (t *IntervalTree[K]) cmpInterval(s1, e1, s2, e2 K) int {
-	if cmp := t.Cmp(s1, s2); cmp != 0 {
+// cmpIntervals compares two intervals 'a' and 'b'.
+func (t *IntervalTree[K]) cmpIntervals(a, b Interval[K]) int {
+	if cmp := t.Cmp(a.Start, b.Start); cmp != 0 {
 		return cmp
 	}
-	return t.Cmp(e1, e2)
+	return t.Cmp(a.End, b.End)
 }
 
 // maxKey compares two keys 'a' and 'b' and returns the greater key based on the configured comparison function.

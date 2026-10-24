@@ -98,7 +98,7 @@ func BenchmarkFindOverlaps(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		s := rng.Intn(1_000_000)
-		_, _ = tree.FindOverlaps(s, s+100)
+		_ = tree.FindOverlaps(s, s+100)
 	}
 }
 

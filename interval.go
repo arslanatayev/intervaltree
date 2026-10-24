@@ -1,53 +1,60 @@
 package intervaltree
 
 // ComputeMerge finds overlapping intervals to remove and computes a single merged range for the new addition.
-func (t *IntervalTree[K]) ComputeMerge(start, end K) (delStarts, delEnds []K, mergedStart, mergedEnd K, isIntersect bool) {
-	starts, ends := t.FindOverlaps(t.Prev(start), t.Next(end))
+func (t *IntervalTree[K]) ComputeMerge(start, end K) (toDelete []Interval[K], merged Interval[K], isIntersect bool) {
+	toDelete = t.FindOverlaps(t.Prev(start), t.Next(end))
 
-	if len(starts) == 0 {
-		return nil, nil, start, end, false
+	if len(toDelete) == 0 {
+		return nil, merged, false
 	}
 
 	newStart := start
 	newEnd := end
 
-	for i := range starts {
-		if t.Cmp(starts[i], newStart) < 0 {
-			newStart = starts[i]
+	for _, interval := range toDelete {
+		if t.Cmp(interval.Start, newStart) < 0 {
+			newStart = interval.Start
 		}
-		if t.Cmp(ends[i], newEnd) > 0 {
-			newEnd = ends[i]
+		if t.Cmp(interval.End, newEnd) > 0 {
+			newEnd = interval.End
 		}
 	}
 
-	return starts, ends, newStart, newEnd, true
+	merged = Interval[K]{
+		Start: newStart,
+		End:   newEnd,
+	}
+
+	return toDelete, merged, true
 }
 
 // ComputeSplit detects intervals to delete and calculates any remaining fragment parts to be re-added.
-func (t *IntervalTree[K]) ComputeSplit(start, end K) (delStarts, delEnds, addStarts, addEnds []K, isIntersect bool) {
-	starts, ends := t.FindOverlaps(start, end)
+func (t *IntervalTree[K]) ComputeSplit(start, end K) (toDelete, toAdd []Interval[K], isIntersect bool) {
+	toDelete = t.FindOverlaps(start, end)
 
-	if len(starts) == 0 {
-		return nil, nil, nil, nil, false
+	if len(toDelete) == 0 {
+		return nil, nil, false
 	}
 
-	l := len(starts)
-	addStarts = make([]K, 0, l*2)
-	addEnds = make([]K, 0, l*2)
+	toAdd = make([]Interval[K], 0, len(toDelete)*2)
 
-	for i := range starts {
-		// left fragment: [starts[i], prev(start)]
-		if t.Cmp(starts[i], start) < 0 {
-			addStarts = append(addStarts, starts[i])
-			addEnds = append(addEnds, t.Prev(start))
+	for _, interval := range toDelete {
+		// left fragment: [interval.Start, prev(start)]
+		if t.Cmp(interval.Start, start) < 0 {
+			toAdd = append(toAdd, Interval[K]{
+				Start: interval.Start,
+				End:   t.Prev(start),
+			})
 		}
 
-		// right fragment: [next(end), ends[i]]
-		if t.Cmp(ends[i], end) > 0 {
-			addStarts = append(addStarts, t.Next(end))
-			addEnds = append(addEnds, ends[i])
+		// right fragment: [next(end), interval.End]
+		if t.Cmp(interval.End, end) > 0 {
+			toAdd = append(toAdd, Interval[K]{
+				Start: t.Next(end),
+				End:   interval.End,
+			})
 		}
 	}
 
-	return starts, ends, addStarts, addEnds, true
+	return toDelete, toAdd, true
 }

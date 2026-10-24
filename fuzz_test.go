@@ -146,17 +146,17 @@ func FuzzIntervalTree(f *testing.F) {
 				}
 
 			case 4: // FIND OVERLAPS
-				starts, ends := tree.FindOverlaps(s, e)
+				overlaps := tree.FindOverlaps(s, e)
 				refOverlaps := ref.findOverlaps(s, e)
 
-				if len(starts) != len(refOverlaps) {
-					t.Fatalf("FindOverlaps(%d, %d) size error: Tree=%d, Reference=%d", s, e, len(starts), len(refOverlaps))
+				if len(overlaps) != len(refOverlaps) {
+					t.Fatalf("FindOverlaps(%d, %d) size error: Tree=%d, Reference=%d", s, e, len(overlaps), len(refOverlaps))
 				}
 
 				// Sort overlapping intervals and verify
-				treeIntervals := make([][2]int, len(starts))
-				for i := range starts {
-					treeIntervals[i] = [2]int{starts[i], ends[i]}
+				treeIntervals := make([][2]int, len(overlaps))
+				for i := range overlaps {
+					treeIntervals[i] = [2]int{overlaps[i].Start, overlaps[i].End}
 				}
 				sort.Slice(treeIntervals, func(i, j int) bool {
 					if treeIntervals[i][0] != treeIntervals[j][0] {
@@ -178,15 +178,15 @@ func FuzzIntervalTree(f *testing.F) {
 				}
 
 			case 5: // ALL
-				starts, ends := tree.All()
+				overlaps := tree.All()
 				refAll := ref.all()
 
-				if len(starts) != len(refAll) {
-					t.Fatalf("All() element count mismatch: Tree=%d, Reference=%d", len(starts), len(refAll))
+				if len(overlaps) != len(refAll) {
+					t.Fatalf("All() element count mismatch: Tree=%d, Reference=%d", len(overlaps), len(refAll))
 				}
-				for i := range starts {
-					if starts[i] != refAll[i][0] || ends[i] != refAll[i][1] {
-						t.Fatalf("All() sorting/content mismatch at %d: Tree=[%d,%d], Reference=%v", i, starts[i], ends[i], refAll[i])
+				for i := range overlaps {
+					if overlaps[i].Start != refAll[i][0] || overlaps[i].End != refAll[i][1] {
+						t.Fatalf("All() sorting/content mismatch at %d: Tree=[%d,%d], Reference=%v", i, overlaps[i].Start, overlaps[i].End, refAll[i])
 					}
 				}
 			}
@@ -230,13 +230,13 @@ func verifyTreeInvariants(t *testing.T, tree *IntervalTree[int]) {
 		// 2. BST Ordering verification
 		if node.LeftIdx != noIdx {
 			left := tree.Nodes[node.LeftIdx]
-			if tree.cmpInterval(left.Start, left.End, node.Start, node.End) >= 0 {
+			if tree.cmpIntervals(left.Interval, node.Interval) >= 0 {
 				t.Fatalf("BST rule violation: Left child [%d, %d] >= Root [%d, %d]", left.Start, left.End, node.Start, node.End)
 			}
 		}
 		if node.RightIdx != noIdx {
 			right := tree.Nodes[node.RightIdx]
-			if tree.cmpInterval(right.Start, right.End, node.Start, node.End) <= 0 {
+			if tree.cmpIntervals(right.Interval, node.Interval) <= 0 {
 				t.Fatalf("BST rule violation: Right child [%d, %d] <= Root [%d, %d]", right.Start, right.End, node.Start, node.End)
 			}
 		}

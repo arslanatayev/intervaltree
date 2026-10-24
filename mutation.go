@@ -7,10 +7,13 @@ package intervaltree
 func (t *IntervalTree[K]) Insert(start, end K) {
 	var newIndex uint32
 	var isLeft bool
+	target := Interval[K]{
+		Start: start,
+		End:   end,
+	}
 
 	newNode := Node[K]{
-		Start:     start,
-		End:       end,
+		Interval:  target,
 		MaxEnd:    end,
 		Height:    1,
 		LeftIdx:   noIdx,
@@ -27,7 +30,7 @@ func (t *IntervalTree[K]) Insert(start, end K) {
 	// BST Traversal
 	currentIdx := t.RootIdx
 	for {
-		cmp := t.cmpInterval(start, end, t.Nodes[currentIdx].Start, t.Nodes[currentIdx].End)
+		cmp := t.cmpIntervals(target, t.Nodes[currentIdx].Interval)
 		if cmp < 0 {
 			if t.Nodes[currentIdx].LeftIdx == noIdx {
 				isLeft = true
@@ -90,9 +93,14 @@ func (t *IntervalTree[K]) allocateNode(newNode Node[K]) uint32 {
 func (t *IntervalTree[K]) Delete(start, end K) {
 	var freeIdx uint32
 
+	target := Interval[K]{
+		Start: start,
+		End:   end,
+	}
+
 	currentIdx := t.RootIdx
 	for currentIdx != noIdx {
-		cmp := t.cmpInterval(start, end, t.Nodes[currentIdx].Start, t.Nodes[currentIdx].End)
+		cmp := t.cmpIntervals(target, t.Nodes[currentIdx].Interval)
 		if cmp < 0 {
 			currentIdx = t.Nodes[currentIdx].LeftIdx
 		} else if cmp > 0 {
@@ -172,8 +180,10 @@ func (t *IntervalTree[K]) Delete(start, end K) {
 	var noVal K
 
 	t.Nodes[freeIdx] = Node[K]{
-		Start:     noVal,
-		End:       noVal,
+		Interval:  Interval[K]{
+			Start:     noVal,
+			End:       noVal,
+		},
 		MaxEnd:    noVal,
 		LeftIdx:   noIdx,
 		RightIdx:  noIdx,
