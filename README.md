@@ -26,12 +26,12 @@ Designed with **Data-Oriented Design (DOD)** principles, `intervaltree` eliminat
 Tested on **AMD Ryzen 7 7730U** (Linux amd64, Go 1.24):
 
 ```text
-BenchmarkInsert-16          1618212    1417 ns/op     44 B/op    0 allocs/op
-BenchmarkExactMatch-16      7456974     308.4 ns/op    0 B/op    0 allocs/op
-BenchmarkCovers-16          7246612     316.0 ns/op    0 B/op    0 allocs/op
-BenchmarkFindOverlaps-16    2240947     951.2 ns/op  790 B/op    5 allocs/op
-BenchmarkDelete-16          3336750    1110 ns/op      0 B/op    0 allocs/op
-BenchmarkGCPause-16            8697  294530 ns/op      2 B/op    0 allocs/op (426 µs/GC)
+BenchmarkInsert-16          1623582    1409 ns/op     44 B/op    0 allocs/op
+BenchmarkExactMatch-16      7627432     302.0 ns/op    0 B/op    0 allocs/op
+BenchmarkCovers-16          7249098     309.7 ns/op    0 B/op    0 allocs/op
+BenchmarkFindOverlaps-16    3597154     573.1 ns/op    0 B/op    0 allocs/op
+BenchmarkDelete-16          2603008    1000 ns/op      0 B/op    0 allocs/op
+BenchmarkGCPause-16            8748  294894 ns/op      3 B/op    0 allocs/op (411 µs/GC)
 ```
 ![Image](assets/benchmark_output.png)
 
@@ -77,10 +77,9 @@ func main() {
 		fmt.Println("Range [12, 18] is completely covered!")
 	}
 
-	// 2. Overlap Query
-	starts, ends := tree.FindOverlaps(18, 35)
-	for i := range starts {
-		fmt.Printf("Overlapping interval: [%d, %d]\n", starts[i], ends[i])
+	// 2. Overlap Query (Zero-alloc)
+	for interval := range tree.FindOverlaps(18, 35) {
+		fmt.Printf("Overlapping interval: [%d, %d]\n", interval.Start, interval.End)
 	}
 
 	// 3. Exact Match (Zero-alloc)
@@ -96,34 +95,34 @@ func main() {
 
 `intervaltree` includes discrete interval utilities to calculate range mutations prior to applying them:
 
-## Interval Merging (`ComputeMerge`)
+### Interval Merging (`ComputeMerge`)
 
 Computes merged bounding intervals for inserting adjacent or overlapping segments without redundant nodes:
 
 ```go
-delStarts, delEnds, mergedStart, mergedEnd, ok := tree.ComputeMerge(21, 29)
+toDelete, merged, ok := tree.ComputeMerge(21, 29)
 if ok {
     // Delete obsolete intervals
-    for i := range delStarts {
-        tree.Delete(delStarts[i], delEnds[i])
+    for _, interval := range toDelete {
+        tree.Delete(interval.Start, interval.End)
     }
     // Insert single consolidated range
-    tree.Insert(mergedStart, mergedEnd)
+    tree.Insert(merged.Start, merged.End)
 }
 ```
 
-## Interval Splitting / Punch-Hole (`ComputeSplit`)
+### Interval Splitting / Punch-Hole (`ComputeSplit`)
 
 Computes necessary cuts and fragment ranges when punching an interval hole through existing sets:
 
 ```go
-delStarts, delEnds, addStarts, addEnds, ok := tree.ComputeSplit(12, 18)
+toDelete, toAdd, ok := tree.ComputeSplit(12, 18)
 if ok {
-    for i := range delStarts {
-        tree.Delete(delStarts[i], delEnds[i])
+    for _, interval := range toDelete {
+        tree.Delete(interval.Start, interval.End)
     }
-    for i := range addStarts {
-        tree.Insert(addStarts[i], addEnds[i])
+    for _, interval := range toAdd {
+        tree.Insert(interval.Start, interval.End)
     }
 }
 ```

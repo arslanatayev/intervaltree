@@ -2,16 +2,16 @@ package intervaltree
 
 // ComputeMerge finds overlapping intervals to remove and computes a single merged range for the new addition.
 func (t *IntervalTree[K]) ComputeMerge(start, end K) (toDelete []Interval[K], merged Interval[K], isIntersect bool) {
-	toDelete = t.FindOverlaps(t.Prev(start), t.Next(end))
-
-	if len(toDelete) == 0 {
-		return nil, merged, false
-	}
+	isIntersect = false
+	capacity := (len(t.Nodes) - len(t.FreeIndex)) / 4
+	toDelete = make([]Interval[K], 0, capacity)
 
 	newStart := start
 	newEnd := end
 
-	for _, interval := range toDelete {
+	for interval := range t.FindOverlaps(t.Prev(start), t.Next(end)) {
+		toDelete = append(toDelete, interval)
+
 		if t.Cmp(interval.Start, newStart) < 0 {
 			newStart = interval.Start
 		}
@@ -25,20 +25,23 @@ func (t *IntervalTree[K]) ComputeMerge(start, end K) (toDelete []Interval[K], me
 		End:   newEnd,
 	}
 
-	return toDelete, merged, true
+	if len(toDelete) > 0 {
+		isIntersect = true
+	}
+
+	return toDelete, merged, isIntersect
 }
 
 // ComputeSplit detects intervals to delete and calculates any remaining fragment parts to be re-added.
 func (t *IntervalTree[K]) ComputeSplit(start, end K) (toDelete, toAdd []Interval[K], isIntersect bool) {
-	toDelete = t.FindOverlaps(start, end)
+	isIntersect = false
+	capacity := (len(t.Nodes) - len(t.FreeIndex)) / 4
+	toDelete = make([]Interval[K], 0, capacity)
+	toAdd = make([]Interval[K], 0, capacity*2)
 
-	if len(toDelete) == 0 {
-		return nil, nil, false
-	}
+	for interval := range t.FindOverlaps(start, end) {
+		toDelete = append(toDelete, interval)
 
-	toAdd = make([]Interval[K], 0, len(toDelete)*2)
-
-	for _, interval := range toDelete {
 		// left fragment: [interval.Start, prev(start)]
 		if t.Cmp(interval.Start, start) < 0 {
 			toAdd = append(toAdd, Interval[K]{
@@ -56,5 +59,9 @@ func (t *IntervalTree[K]) ComputeSplit(start, end K) (toDelete, toAdd []Interval
 		}
 	}
 
-	return toDelete, toAdd, true
+	if len(toDelete) > 0 {
+		isIntersect = true
+	}
+
+	return toDelete, toAdd, isIntersect
 }

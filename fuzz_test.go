@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"sort"
 	"testing"
+	"slices"
 )
 
 // referenceModel is a brute-force reference model that cannot make errors.
@@ -146,7 +147,7 @@ func FuzzIntervalTree(f *testing.F) {
 				}
 
 			case 4: // FIND OVERLAPS
-				overlaps := tree.FindOverlaps(s, e)
+				overlaps := slices.Collect(tree.FindOverlaps(s, e))
 				refOverlaps := ref.findOverlaps(s, e)
 
 				if len(overlaps) != len(refOverlaps) {
@@ -177,16 +178,16 @@ func FuzzIntervalTree(f *testing.F) {
 					}
 				}
 
-			case 5: // ALL
-				overlaps := tree.All()
+			case 5: // Slice
+				overlaps := tree.Slice()
 				refAll := ref.all()
 
 				if len(overlaps) != len(refAll) {
-					t.Fatalf("All() element count mismatch: Tree=%d, Reference=%d", len(overlaps), len(refAll))
+					t.Fatalf("Slice() element count mismatch: Tree=%d, Reference=%d", len(overlaps), len(refAll))
 				}
 				for i := range overlaps {
 					if overlaps[i].Start != refAll[i][0] || overlaps[i].End != refAll[i][1] {
-						t.Fatalf("All() sorting/content mismatch at %d: Tree=[%d,%d], Reference=%v", i, overlaps[i].Start, overlaps[i].End, refAll[i])
+						t.Fatalf("Slice() sorting/content mismatch at %d: Tree=[%d,%d], Reference=%v", i, overlaps[i].Start, overlaps[i].End, refAll[i])
 					}
 				}
 			}
