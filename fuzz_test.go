@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"sort"
 	"testing"
-	"slices"
 )
 
 // referenceModel is a brute-force reference model that cannot make errors.
@@ -125,11 +124,11 @@ func FuzzIntervalTree(f *testing.F) {
 
 			switch op % 6 {
 			case 0: // INSERT
-				tree.Insert(s, e)
+				_ = tree.Insert(s, e)
 				ref.insert(s, e)
 
 			case 1: // DELETE
-				tree.Delete(s, e)
+				_ = tree.Delete(s, e)
 				ref.delete(s, e)
 
 			case 2: // EXACT MATCH
@@ -147,7 +146,7 @@ func FuzzIntervalTree(f *testing.F) {
 				}
 
 			case 4: // FIND OVERLAPS
-				overlaps := slices.Collect(tree.FindOverlaps(s, e))
+				overlaps := tree.FindOverlapsSlice(s, e)
 				refOverlaps := ref.findOverlaps(s, e)
 
 				if len(overlaps) != len(refOverlaps) {

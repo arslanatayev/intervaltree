@@ -57,6 +57,7 @@ func New[K any](capacity int, cmp CompareFunc[K], prev PrevFunc[K], next NextFun
 
 // Reset clears all active nodes and free indices while retaining the underlying slice allocations.
 func (t *IntervalTree[K]) Reset() {
+	clear(t.Nodes)
 	t.Nodes = t.Nodes[:0]
 	t.FreeIndex = t.FreeIndex[:0]
 	t.RootIdx = noIdx

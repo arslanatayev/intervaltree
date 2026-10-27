@@ -3,8 +3,9 @@ package intervaltree
 // Insert inserts a new interval [start, end] into the tree.
 // It reuses a recycled node index from FreeIndex if available, otherwise appends a new node,
 // and rebalances the tree bottom-up along the insertion path.
+// Returns true if the interval was successfully inserted, or false if it already existed.
 // Precondition: start <= end
-func (t *IntervalTree[K]) Insert(start, end K) {
+func (t *IntervalTree[K]) Insert(start, end K) bool {
 	var newIndex uint32
 	var isLeft bool
 	target := Interval[K]{
@@ -24,7 +25,7 @@ func (t *IntervalTree[K]) Insert(start, end K) {
 	// Root control
 	if t.RootIdx == noIdx {
 		t.RootIdx = t.allocateNode(newNode)
-		return
+		return true
 	}
 
 	// BST Traversal
@@ -44,7 +45,7 @@ func (t *IntervalTree[K]) Insert(start, end K) {
 			}
 			currentIdx = t.Nodes[currentIdx].RightIdx
 		} else {
-			return
+			return false // Duplicate interval already exists
 		}
 	}
 
@@ -71,6 +72,8 @@ func (t *IntervalTree[K]) Insert(start, end K) {
 
 		updateIdx = t.Nodes[updateIdx].ParentIdx
 	}
+
+	return true
 }
 
 // allocateNode allocates a new node either by reusing an index from the FreeIndex pool
@@ -90,7 +93,8 @@ func (t *IntervalTree[K]) allocateNode(newNode Node[K]) uint32 {
 
 // Delete removes the node that exactly matches the interval [start, end].
 // It recycles the freed slot index into FreeIndex for memory reuse and rebalances the tree upwards.
-func (t *IntervalTree[K]) Delete(start, end K) {
+// Returns true if the interval was found and successfully deleted, or false if it did not exist.
+func (t *IntervalTree[K]) Delete(start, end K) bool {
 	var freeIdx uint32
 
 	target := Interval[K]{
@@ -111,7 +115,7 @@ func (t *IntervalTree[K]) Delete(start, end K) {
 	}
 
 	if currentIdx == noIdx {
-		return
+		return false // Interval not found
 	}
 
 	parentIdx := t.Nodes[currentIdx].ParentIdx
@@ -180,9 +184,9 @@ func (t *IntervalTree[K]) Delete(start, end K) {
 	var noVal K
 
 	t.Nodes[freeIdx] = Node[K]{
-		Interval:  Interval[K]{
-			Start:     noVal,
-			End:       noVal,
+		Interval: Interval[K]{
+			Start: noVal,
+			End:   noVal,
 		},
 		MaxEnd:    noVal,
 		LeftIdx:   noIdx,
@@ -204,4 +208,6 @@ func (t *IntervalTree[K]) Delete(start, end K) {
 
 		updateIdx = t.Nodes[updateIdx].ParentIdx
 	}
+
+	return true
 }

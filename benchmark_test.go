@@ -35,7 +35,7 @@ func BenchmarkInsert(b *testing.B) {
 
 	tree := defaultTree(b.N)
 	for i := 0; i < b.N; i++ {
-		tree.Insert(intervals[i][0], intervals[i][1])
+		_ = tree.Insert(intervals[i][0], intervals[i][1])
 	}
 }
 
@@ -48,7 +48,7 @@ func BenchmarkExactMatch(b *testing.B) {
 	for i := 0; i < size; i++ {
 		s := rng.Intn(1_000_000)
 		e := s + rng.Intn(100)
-		tree.Insert(s, e)
+		_ = tree.Insert(s, e)
 		if i%10 == 0 {
 			queries = append(queries, [2]int{s, e})
 		}
@@ -71,7 +71,7 @@ func BenchmarkCovers(b *testing.B) {
 
 	for i := 0; i < size; i++ {
 		s := rng.Intn(1_000_000)
-		tree.Insert(s, s+rng.Intn(500))
+		_ = tree.Insert(s, s+rng.Intn(500))
 	}
 
 	b.ResetTimer()
@@ -90,7 +90,7 @@ func BenchmarkFindOverlaps(b *testing.B) {
 
 	for i := 0; i < size; i++ {
 		s := rng.Intn(1_000_000)
-		tree.Insert(s, s+rng.Intn(200))
+		_ = tree.Insert(s, s+rng.Intn(200))
 	}
 
 	b.ResetTimer()
@@ -112,14 +112,14 @@ func BenchmarkDelete(b *testing.B) {
 
 	tree := defaultTree(b.N)
 	for i := 0; i < b.N; i++ {
-		tree.Insert(intervals[i][0], intervals[i][1])
+		_ = tree.Insert(intervals[i][0], intervals[i][1])
 	}
 
 	b.ResetTimer()
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		tree.Delete(intervals[i][0], intervals[i][1])
+		_ = tree.Delete(intervals[i][0], intervals[i][1])
 	}
 }
 
@@ -127,7 +127,7 @@ func BenchmarkGCPause(b *testing.B) {
 	const nodes = 1_000_000
 	tree := defaultTree(nodes)
 	for i := 0; i < nodes; i++ {
-		tree.Insert(i*10, i*10+5)
+		_ = tree.Insert(i*10, i*10+5)
 	}
 
 	b.ResetTimer()

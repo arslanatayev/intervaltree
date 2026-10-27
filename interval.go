@@ -4,6 +4,9 @@ package intervaltree
 func (t *IntervalTree[K]) ComputeMerge(start, end K) (toDelete []Interval[K], merged Interval[K], isIntersect bool) {
 	isIntersect = false
 	capacity := (len(t.Nodes) - len(t.FreeIndex)) / 4
+	if capacity < 4 {
+		capacity = 4
+	}
 	toDelete = make([]Interval[K], 0, capacity)
 
 	newStart := start
@@ -36,6 +39,9 @@ func (t *IntervalTree[K]) ComputeMerge(start, end K) (toDelete []Interval[K], me
 func (t *IntervalTree[K]) ComputeSplit(start, end K) (toDelete, toAdd []Interval[K], isIntersect bool) {
 	isIntersect = false
 	capacity := (len(t.Nodes) - len(t.FreeIndex)) / 4
+	if capacity < 4 {
+		capacity = 4
+	}
 	toDelete = make([]Interval[K], 0, capacity)
 	toAdd = make([]Interval[K], 0, capacity*2)
 

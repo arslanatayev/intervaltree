@@ -59,18 +59,26 @@ import (
 )
 
 func main() {
+	intervals := []intervaltree.Interval[int]{
+		{Start: 10, End: 20},
+		{Start: 15, End: 25},
+		{Start: 30, End: 40},
+	}
+
 	// Initialize an interval tree for integers with initial capacity
 	tree := intervaltree.New[int](
 		1024,
-		cmp.Compare[int],     // Comparison function
-		func(v int) int { return v - 1 }, // Prev function
-		func(v int) int { return v + 1 }, // Next function
+		cmp.Compare[int],                     // Comparison function
+		func(v int) int { return v - 1 },     // Prev function
+		func(v int) int { return v + 1 },     // Next function
 	)
 
-	// Insert intervals [start, end]
-	tree.Insert(10, 20)
-	tree.Insert(15, 25)
-	tree.Insert(30, 40)
+	// Insert intervals and check bool return status using a loop
+	for _, interval := range intervals {
+		if tree.Insert(interval.Start, interval.End) {
+			fmt.Printf("Inserted [%d, %d] successfully!\n", interval.Start, interval.End)
+		}
+	}
 
 	// 1. Point / Range Coverage (Zero-alloc)
 	if tree.Covers(12, 18) {
@@ -86,8 +94,10 @@ func main() {
 	exists := tree.ExactMatch(10, 20)
 	fmt.Printf("Exact interval [10, 20] exists: %t\n", exists)
 
-	// 4. Delete interval (Zero-alloc)
-	tree.Delete(10, 20)
+	// 4. Delete interval with success check
+	if tree.Delete(10, 20) {
+		fmt.Println("Deleted [10, 20] successfully!")
+	}
 }
 ```
 
@@ -171,6 +181,28 @@ tree := intervaltree.New[int](
         return v + 1
     },
 )
+```
+
+### Mutation During Iteration
+Iterator-based methods (`All()`, `FindOverlaps()`, `Stabs()`) yield elements lazily using Go 1.23 iterators (`iter.Seq`). **Never mutate the tree (`Insert` or `Delete`) while actively iterating over it.** 
+
+Modifying the tree structure during iteration invalidates internal stack states, breaks AVL tree topology due to rotations, and leads to undefined behavior. If you need to modify the tree based on search or traversal results, use the **"Collect-then-Mutate"** pattern. 
+
+For convenience, the library provides dedicated slice-returning methods (`Slice()`, `FindOverlapsSlice()`, `StabsSlice()`) specifically designed for scenarios where you need to collect elements before performing mutations:
+
+```go
+// ❌ UNSAFE: Mutating the tree inside the active iterator loop
+for interval := range tree.FindOverlaps(start, end) {
+    tree.Delete(interval.Start, interval.End) // DO NOT DO THIS
+}
+
+// ✅ SAFE: Use Slice-returning methods or slices.Collect first, then perform mutations
+overlaps := tree.FindOverlapsSlice(start, end) // Or tree.Slice() for All(), tree.StabsSlice(point) for Stabs()
+
+for _, interval := range overlaps {
+    tree.Delete(interval.Start, interval.End)
+}
+tree.Insert(start, end)
 ```
 
 ### Concurrency

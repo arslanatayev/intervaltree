@@ -102,6 +102,23 @@ func (t *IntervalTree[K]) FindOverlaps(start, end K) iter.Seq[Interval[K]] {
 	}
 }
 
+// FindOverlapsSlice returns all intervals that overlap with the query range [start, end] as a slice.
+// This is convenient when you need a concrete slice instead of an iterator, or when performing 
+// tree mutations (Insert/Delete) based on search results to avoid concurrent iterator modification issues.
+func (t *IntervalTree[K]) FindOverlapsSlice(start, end K) []Interval[K] {
+	capacity := (len(t.Nodes) - len(t.FreeIndex)) / 4
+	if capacity < 4 {
+		capacity = 4
+	}
+	intervals := make([]Interval[K], 0, capacity)
+
+	for interval := range t.FindOverlaps(start, end) {
+		intervals = append(intervals, interval)
+	}
+
+	return intervals
+}
+
 // All traverses the tree in-order and returns iterator over all active intervals containing the start and end keys.
 // It uses an iterative stack to achieve zero-allocation traversal without recursion overhead.
 func (t *IntervalTree[K]) All() iter.Seq[Interval[K]] {
@@ -134,6 +151,8 @@ func (t *IntervalTree[K]) All() iter.Seq[Interval[K]] {
 }
 
 // Slice returns all active intervals as an in-order slice.
+// This is convenient when you need a concrete slice instead of an iterator, or when performing 
+// tree mutations (Insert/Delete) based on search results to avoid concurrent iterator modification issues.
 func (t *IntervalTree[K]) Slice() (intervals []Interval[K]) {
 	capacity := len(t.Nodes) - len(t.FreeIndex)
 
@@ -159,4 +178,11 @@ func (t *IntervalTree[K]) Len() int {
 // Stabs returns iterator over all intervals that contain the given point.
 func (t *IntervalTree[K]) Stabs(point K) iter.Seq[Interval[K]] {
 	return t.FindOverlaps(point, point)
+}
+
+// StabsSlice returns all intervals that contain the given point as a slice.
+// This is convenient when you need a concrete slice instead of an iterator, or when performing 
+// tree mutations (Insert/Delete) based on search results to avoid concurrent iterator modification issues.
+func (t *IntervalTree[K]) StabsSlice(point K) []Interval[K] {
+	return t.FindOverlapsSlice(point, point)
 }
