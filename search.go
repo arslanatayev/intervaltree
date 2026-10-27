@@ -3,8 +3,8 @@ package intervaltree
 import "iter"
 
 // ExactMatch traverses the tree to determine if an interval matching [start, end] exactly exists.
-func (t *IntervalTree[K]) ExactMatch(start, end K) bool {
-	target := Interval[K]{
+func (t *IntervalTree[K, V]) ExactMatch(start, end K) bool {
+	target := Interval[K, V]{
 		Start: start,
 		End:   end,
 	}
@@ -27,7 +27,7 @@ func (t *IntervalTree[K]) ExactMatch(start, end K) bool {
 
 // Covers checks if there exists any node in the tree that completely encompasses the given [start, end] range.
 // It uses an iterative stack with MaxEnd pruning for maximum performance.
-func (t *IntervalTree[K]) Covers(start, end K) bool {
+func (t *IntervalTree[K, V]) Covers(start, end K) bool {
 	if t.RootIdx == noIdx {
 		return false
 	}
@@ -64,8 +64,8 @@ func (t *IntervalTree[K]) Covers(start, end K) bool {
 }
 
 // FindOverlaps searches the tree and returns iterator over all intervals that overlap with the query range [start, end].
-func (t *IntervalTree[K]) FindOverlaps(start, end K) iter.Seq[Interval[K]] {
-	return func(yield func(Interval[K]) bool) {
+func (t *IntervalTree[K, V]) FindOverlaps(start, end K) iter.Seq[Interval[K, V]] {
+	return func(yield func(Interval[K, V]) bool) {
 		if t.RootIdx == noIdx {
 			return
 		}
@@ -105,12 +105,12 @@ func (t *IntervalTree[K]) FindOverlaps(start, end K) iter.Seq[Interval[K]] {
 // FindOverlapsSlice returns all intervals that overlap with the query range [start, end] as a slice.
 // This is convenient when you need a concrete slice instead of an iterator, or when performing 
 // tree mutations (Insert/Delete) based on search results to avoid concurrent iterator modification issues.
-func (t *IntervalTree[K]) FindOverlapsSlice(start, end K) []Interval[K] {
+func (t *IntervalTree[K, V]) FindOverlapsSlice(start, end K) []Interval[K, V] {
 	capacity := (len(t.Nodes) - len(t.FreeIndex)) / 4
 	if capacity < 4 {
 		capacity = 4
 	}
-	intervals := make([]Interval[K], 0, capacity)
+	intervals := make([]Interval[K, V], 0, capacity)
 
 	for interval := range t.FindOverlaps(start, end) {
 		intervals = append(intervals, interval)
@@ -121,8 +121,8 @@ func (t *IntervalTree[K]) FindOverlapsSlice(start, end K) []Interval[K] {
 
 // All traverses the tree in-order and returns iterator over all active intervals containing the start and end keys.
 // It uses an iterative stack to achieve zero-allocation traversal without recursion overhead.
-func (t *IntervalTree[K]) All() iter.Seq[Interval[K]] {
-	return func(yield func(Interval[K]) bool) {
+func (t *IntervalTree[K, V]) All() iter.Seq[Interval[K, V]] {
+	return func(yield func(Interval[K, V]) bool) {
 		if t.RootIdx == noIdx {
 			return
 		}
@@ -153,10 +153,10 @@ func (t *IntervalTree[K]) All() iter.Seq[Interval[K]] {
 // Slice returns all active intervals as an in-order slice.
 // This is convenient when you need a concrete slice instead of an iterator, or when performing 
 // tree mutations (Insert/Delete) based on search results to avoid concurrent iterator modification issues.
-func (t *IntervalTree[K]) Slice() (intervals []Interval[K]) {
+func (t *IntervalTree[K, V]) Slice() (intervals []Interval[K, V]) {
 	capacity := len(t.Nodes) - len(t.FreeIndex)
 
-	intervals = make([]Interval[K], 0, capacity)
+	intervals = make([]Interval[K, V], 0, capacity)
 
 	for iv := range t.All() {
 		intervals = append(intervals, iv)
@@ -166,23 +166,23 @@ func (t *IntervalTree[K]) Slice() (intervals []Interval[K]) {
 }
 
 // IsEmpty returns true if the tree contains no intervals.
-func (t *IntervalTree[K]) IsEmpty() bool {
+func (t *IntervalTree[K, V]) IsEmpty() bool {
 	return t.RootIdx == noIdx
 }
 
 // Len returns the number of active intervals currently stored in the tree.
-func (t *IntervalTree[K]) Len() int {
+func (t *IntervalTree[K, V]) Len() int {
 	return len(t.Nodes) - len(t.FreeIndex)
 }
 
 // Stabs returns iterator over all intervals that contain the given point.
-func (t *IntervalTree[K]) Stabs(point K) iter.Seq[Interval[K]] {
+func (t *IntervalTree[K, V]) Stabs(point K) iter.Seq[Interval[K, V]] {
 	return t.FindOverlaps(point, point)
 }
 
 // StabsSlice returns all intervals that contain the given point as a slice.
 // This is convenient when you need a concrete slice instead of an iterator, or when performing 
 // tree mutations (Insert/Delete) based on search results to avoid concurrent iterator modification issues.
-func (t *IntervalTree[K]) StabsSlice(point K) []Interval[K] {
+func (t *IntervalTree[K, V]) StabsSlice(point K) []Interval[K, V] {
 	return t.FindOverlapsSlice(point, point)
 }

@@ -101,7 +101,7 @@ func FuzzIntervalTree(f *testing.F) {
 			return
 		}
 
-		tree := New[int](16, cmp, prev, next)
+		tree := New[int, struct{}](16, cmp, prev, next)
 		ref := &referenceModel{}
 		reader := bytes.NewReader(data)
 
@@ -124,7 +124,7 @@ func FuzzIntervalTree(f *testing.F) {
 
 			switch op % 6 {
 			case 0: // INSERT
-				_ = tree.Insert(s, e)
+				_ = tree.Insert(s, e, struct{}{})
 				ref.insert(s, e)
 
 			case 1: // DELETE
@@ -198,7 +198,7 @@ func FuzzIntervalTree(f *testing.F) {
 }
 
 // verifyTreeInvariants validates the tree's AVL rules, MaxEnd calculations, and parent-child pointers.
-func verifyTreeInvariants(t *testing.T, tree *IntervalTree[int]) {
+func verifyTreeInvariants(t *testing.T, tree *IntervalTree[int, struct{}]) {
 	if tree.RootIdx == noIdx {
 		activeCount := len(tree.Nodes) - len(tree.FreeIndex)
 		if activeCount != 0 {

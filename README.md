@@ -12,7 +12,7 @@ Designed with **Data-Oriented Design (DOD)** principles, `intervaltree` eliminat
 
 ## Key Highlights
 
-- **Cache-Friendly & Pointer-Free:** Nodes are indexed via `uint32` descriptors over a flat slice (`[]Node[K]`), avoiding pointer fragmentation and dramatically improving CPU cache locality.
+- **Cache-Friendly & Pointer-Free:** Nodes are indexed via `uint32` descriptors over a flat slice (`[]Node[K, V]`), avoiding pointer fragmentation and dramatically improving CPU cache locality.
 - **Zero Heap Allocations on Hot Paths:** Query operations such as `ExactMatch` and `Covers` execute with **0 B/op and 0 allocs/op**.
 - **Slot Recycling (O(1) Free-List):** Deleted node slots are recycled via an internal free-index pool, avoiding heap reallocations during continuous insert/delete cycles.
 - **Recursion-Free Algorithms:** All traversals utilize fixed-size stack buffers (`[64]uint32`), preventing stack overflows and eliminating runtime frame allocations.
@@ -59,14 +59,14 @@ import (
 )
 
 func main() {
-	intervals := []intervaltree.Interval[int]{
-		{Start: 10, End: 20},
-		{Start: 15, End: 25},
-		{Start: 30, End: 40},
+	intervals := []intervaltree.Interval[int, struct{}]{
+		{Start: 10, End: 20, Value: struct{}{}},
+		{Start: 15, End: 25, Value: struct{}{}},
+		{Start: 30, End: 40, Value: struct{}{}},
 	}
 
-	// Initialize an interval tree for integers with initial capacity
-	tree := intervaltree.New[int](
+	// Initialize an interval tree for integers and custom value types with initial capacity
+	tree := intervaltree.New[int, struct{}](
 		1024,
 		cmp.Compare[int],                     // Comparison function
 		func(v int) int { return v - 1 },     // Prev function
@@ -75,7 +75,7 @@ func main() {
 
 	// Insert intervals and check bool return status using a loop
 	for _, interval := range intervals {
-		if tree.Insert(interval.Start, interval.End) {
+		if tree.Insert(interval.Start, interval.End, interval.Value) {
 			fmt.Printf("Inserted [%d, %d] successfully!\n", interval.Start, interval.End)
 		}
 	}
@@ -117,7 +117,7 @@ if ok {
         tree.Delete(interval.Start, interval.End)
     }
     // Insert single consolidated range
-    tree.Insert(merged.Start, merged.End)
+    tree.Insert(merged.Start, merged.End, struct{}{})
 }
 ```
 
@@ -132,7 +132,8 @@ if ok {
         tree.Delete(interval.Start, interval.End)
     }
     for _, interval := range toAdd {
-        tree.Insert(interval.Start, interval.End)
+		// Fragments preserve their original associated values automatically
+        tree.Insert(interval.Start, interval.End, interval.Value)
     }
 }
 ```
@@ -165,7 +166,7 @@ To avoid integer overflow/underflow or panics when reaching domain extremes (e.g
 
 ```go
 // Example: Safe Prev/Next functions for int
-tree := intervaltree.New[int](
+tree := intervaltree.New[int, struct{}](
     1024,
     cmp.Compare[int],
     func(v int) int {
@@ -202,7 +203,7 @@ overlaps := tree.FindOverlapsSlice(start, end) // Or tree.Slice() for All(), tre
 for _, interval := range overlaps {
     tree.Delete(interval.Start, interval.End)
 }
-tree.Insert(start, end)
+tree.Insert(start, end, struct{}{})
 ```
 
 ### Concurrency
@@ -210,9 +211,9 @@ tree.Insert(start, end)
 Like Go standard library container types (`container/list`, `map`), `IntervalTree` is not thread-safe by default. If concurrent read/write access is required, protect instances with a `sync.RWMutex`:
 
 ```go
-type SafeTree[K any] struct {
+type SafeTree[K any, V any] struct {
     mu   sync.RWMutex
-    tree *intervaltree.IntervalTree[K]
+    tree *intervaltree.IntervalTree[K, V]
 }
 ```
 

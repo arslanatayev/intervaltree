@@ -5,15 +5,16 @@ package intervaltree
 // and rebalances the tree bottom-up along the insertion path.
 // Returns true if the interval was successfully inserted, or false if it already existed.
 // Precondition: start <= end
-func (t *IntervalTree[K]) Insert(start, end K) bool {
+func (t *IntervalTree[K, V]) Insert(start, end K, value V) bool {
 	var newIndex uint32
 	var isLeft bool
-	target := Interval[K]{
+	target := Interval[K, V]{
 		Start: start,
 		End:   end,
+		Value: value,
 	}
 
-	newNode := Node[K]{
+	newNode := Node[K, V]{
 		Interval:  target,
 		MaxEnd:    end,
 		Height:    1,
@@ -78,7 +79,7 @@ func (t *IntervalTree[K]) Insert(start, end K) bool {
 
 // allocateNode allocates a new node either by reusing an index from the FreeIndex pool
 // or by appending to the Nodes slice if no recycled indices are available.
-func (t *IntervalTree[K]) allocateNode(newNode Node[K]) uint32 {
+func (t *IntervalTree[K, V]) allocateNode(newNode Node[K, V]) uint32 {
 	if len(t.FreeIndex) > 0 {
 		lastIdx := len(t.FreeIndex) - 1
 		idx := t.FreeIndex[lastIdx]
@@ -94,10 +95,10 @@ func (t *IntervalTree[K]) allocateNode(newNode Node[K]) uint32 {
 // Delete removes the node that exactly matches the interval [start, end].
 // It recycles the freed slot index into FreeIndex for memory reuse and rebalances the tree upwards.
 // Returns true if the interval was found and successfully deleted, or false if it did not exist.
-func (t *IntervalTree[K]) Delete(start, end K) bool {
+func (t *IntervalTree[K, V]) Delete(start, end K) bool {
 	var freeIdx uint32
 
-	target := Interval[K]{
+	target := Interval[K, V]{
 		Start: start,
 		End:   end,
 	}
@@ -183,8 +184,8 @@ func (t *IntervalTree[K]) Delete(start, end K) bool {
 
 	var noVal K
 
-	t.Nodes[freeIdx] = Node[K]{
-		Interval: Interval[K]{
+	t.Nodes[freeIdx] = Node[K, V]{
+		Interval: Interval[K, V]{
 			Start: noVal,
 			End:   noVal,
 		},

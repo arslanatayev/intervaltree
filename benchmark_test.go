@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func defaultTree(capacity int) *IntervalTree[int] {
+func defaultTree(capacity int) *IntervalTree[int, struct{}] {
 	cmp := func(a, b int) int {
 		if a < b {
 			return -1
@@ -19,7 +19,7 @@ func defaultTree(capacity int) *IntervalTree[int] {
 	}
 	prev := func(a int) int { return a - 1 }
 	next := func(a int) int { return a + 1 }
-	return New[int](capacity, cmp, prev, next)
+	return New[int, struct{}](capacity, cmp, prev, next)
 }
 
 func BenchmarkInsert(b *testing.B) {
@@ -35,7 +35,7 @@ func BenchmarkInsert(b *testing.B) {
 
 	tree := defaultTree(b.N)
 	for i := 0; i < b.N; i++ {
-		_ = tree.Insert(intervals[i][0], intervals[i][1])
+		_ = tree.Insert(intervals[i][0], intervals[i][1], struct{}{})
 	}
 }
 
@@ -48,7 +48,7 @@ func BenchmarkExactMatch(b *testing.B) {
 	for i := 0; i < size; i++ {
 		s := rng.Intn(1_000_000)
 		e := s + rng.Intn(100)
-		_ = tree.Insert(s, e)
+		_ = tree.Insert(s, e, struct{}{})
 		if i%10 == 0 {
 			queries = append(queries, [2]int{s, e})
 		}
@@ -71,7 +71,7 @@ func BenchmarkCovers(b *testing.B) {
 
 	for i := 0; i < size; i++ {
 		s := rng.Intn(1_000_000)
-		_ = tree.Insert(s, s+rng.Intn(500))
+		_ = tree.Insert(s, s+rng.Intn(500), struct{}{})
 	}
 
 	b.ResetTimer()
@@ -90,7 +90,7 @@ func BenchmarkFindOverlaps(b *testing.B) {
 
 	for i := 0; i < size; i++ {
 		s := rng.Intn(1_000_000)
-		_ = tree.Insert(s, s+rng.Intn(200))
+		_ = tree.Insert(s, s+rng.Intn(200), struct{}{})
 	}
 
 	b.ResetTimer()
@@ -98,7 +98,7 @@ func BenchmarkFindOverlaps(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		s := rng.Intn(1_000_000)
-		for _ = range tree.FindOverlaps(s, s+100) {}
+		for range tree.FindOverlaps(s, s+100) {}
 	}
 }
 
@@ -112,7 +112,7 @@ func BenchmarkDelete(b *testing.B) {
 
 	tree := defaultTree(b.N)
 	for i := 0; i < b.N; i++ {
-		_ = tree.Insert(intervals[i][0], intervals[i][1])
+		_ = tree.Insert(intervals[i][0], intervals[i][1], struct{}{})
 	}
 
 	b.ResetTimer()
@@ -127,7 +127,7 @@ func BenchmarkGCPause(b *testing.B) {
 	const nodes = 1_000_000
 	tree := defaultTree(nodes)
 	for i := 0; i < nodes; i++ {
-		_ = tree.Insert(i*10, i*10+5)
+		_ = tree.Insert(i*10, i*10+5, struct{}{})
 	}
 
 	b.ResetTimer()
