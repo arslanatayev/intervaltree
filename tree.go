@@ -7,6 +7,12 @@ import "math"
 // noIdx represents a sentinel index used to denote a null or non-existent node reference.
 const noIdx uint32 = math.MaxUint32
 
+// defaultCapacity defines the initial capacity allocated for slices or buffers to avoid frequent allocations.
+const defaultCapacity = 16
+
+// minInt represents the platform-dependent minimum integer value, used for boundary initialization in tree validations.
+const minInt = math.MinInt
+
 // Node represents a single interval element stored within a contiguous slice backing the tree.
 type Node[K any, V any] struct {
 	Interval[K, V]

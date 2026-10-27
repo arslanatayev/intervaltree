@@ -26,12 +26,14 @@ Designed with **Data-Oriented Design (DOD)** principles, `intervaltree` eliminat
 Tested on **AMD Ryzen 7 7730U** (Linux amd64, Go 1.24):
 
 ```text
-BenchmarkInsert-16          1623582    1409 ns/op     44 B/op    0 allocs/op
-BenchmarkExactMatch-16      7627432     302.0 ns/op    0 B/op    0 allocs/op
-BenchmarkCovers-16          7249098     309.7 ns/op    0 B/op    0 allocs/op
-BenchmarkFindOverlaps-16    3597154     573.1 ns/op    0 B/op    0 allocs/op
-BenchmarkDelete-16          2603008    1000 ns/op      0 B/op    0 allocs/op
-BenchmarkGCPause-16            8748  294894 ns/op      3 B/op    0 allocs/op (411 µs/GC)
+BenchmarkInsert-16         2611338    1016 ns/op        52 B/op    0 allocs/op
+BenchmarkExactMatch-16     14840359   156.4 ns/op        0 B/op    0 allocs/op
+BenchmarkCovers-16         12061328   167.8 ns/op        0 B/op    0 allocs/op
+BenchmarkFindOverlaps-16   3473763    782.0 ns/op        0 B/op    0 allocs/op
+BenchmarkComputeMerge-16   3461788    621.2 ns/op      408 B/op    1 allocs/op
+BenchmarkComputeSplit-16   1715494    1269 ns/op      1776 B/op    2 allocs/op
+BenchmarkDelete-16         3206364    1099 ns/op         0 B/op    0 allocs/op
+BenchmarkGCPause-16        12926      183841 ns/op       8 B/op    0 allocs/op (177.0 µs/GC)
 ```
 ![Image](assets/benchmark_output.png)
 

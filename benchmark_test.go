@@ -102,6 +102,44 @@ func BenchmarkFindOverlaps(b *testing.B) {
 	}
 }
 
+func BenchmarkComputeMerge(b *testing.B) {
+	const size = 100_000
+	tree := defaultTree(size)
+	rng := rand.New(rand.NewSource(42))
+
+	for i := 0; i < size; i++ {
+		s := rng.Intn(1_000_000)
+		_ = tree.Insert(s, s+rng.Intn(100), struct{}{})
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		s := rng.Intn(1_000_000)
+		_, _, _ = tree.ComputeMerge(s, s+50)
+	}
+}
+
+func BenchmarkComputeSplit(b *testing.B) {
+	const size = 100_000
+	tree := defaultTree(size)
+	rng := rand.New(rand.NewSource(42))
+
+	for i := 0; i < size; i++ {
+		s := rng.Intn(1_000_000)
+		_ = tree.Insert(s, s+rng.Intn(200), struct{}{})
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		s := rng.Intn(1_000_000)
+		_, _, _ = tree.ComputeSplit(s, s+100)
+	}
+}
+
 func BenchmarkDelete(b *testing.B) {
 	rng := rand.New(rand.NewSource(42))
 	intervals := make([][2]int, b.N)

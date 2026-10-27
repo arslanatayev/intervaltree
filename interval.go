@@ -3,11 +3,7 @@ package intervaltree
 // ComputeMerge finds overlapping intervals to remove and computes a single merged range for the new addition.
 func (t *IntervalTree[K, V]) ComputeMerge(start, end K) (toDelete []Interval[K, V], merged Interval[K, V], isIntersect bool) {
 	isIntersect = false
-	capacity := (len(t.Nodes) - len(t.FreeIndex)) / 4
-	if capacity < 4 {
-		capacity = 4
-	}
-	toDelete = make([]Interval[K, V], 0, capacity)
+	toDelete = make([]Interval[K, V], 0, defaultCapacity)
 
 	newStart := start
 	newEnd := end
@@ -38,12 +34,8 @@ func (t *IntervalTree[K, V]) ComputeMerge(start, end K) (toDelete []Interval[K, 
 // ComputeSplit detects intervals to delete and calculates any remaining fragment parts to be re-added.
 func (t *IntervalTree[K, V]) ComputeSplit(start, end K) (toDelete, toAdd []Interval[K, V], isIntersect bool) {
 	isIntersect = false
-	capacity := (len(t.Nodes) - len(t.FreeIndex)) / 4
-	if capacity < 4 {
-		capacity = 4
-	}
-	toDelete = make([]Interval[K, V], 0, capacity)
-	toAdd = make([]Interval[K, V], 0, capacity*2)
+	toDelete = make([]Interval[K, V], 0, defaultCapacity)
+	toAdd = make([]Interval[K, V], 0, defaultCapacity*2)
 
 	for interval := range t.FindOverlaps(start, end) {
 		toDelete = append(toDelete, interval)

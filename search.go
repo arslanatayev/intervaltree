@@ -106,11 +106,7 @@ func (t *IntervalTree[K, V]) FindOverlaps(start, end K) iter.Seq[Interval[K, V]]
 // This is convenient when you need a concrete slice instead of an iterator, or when performing 
 // tree mutations (Insert/Delete) based on search results to avoid concurrent iterator modification issues.
 func (t *IntervalTree[K, V]) FindOverlapsSlice(start, end K) []Interval[K, V] {
-	capacity := (len(t.Nodes) - len(t.FreeIndex)) / 4
-	if capacity < 4 {
-		capacity = 4
-	}
-	intervals := make([]Interval[K, V], 0, capacity)
+	intervals := make([]Interval[K, V], 0, 8)
 
 	for interval := range t.FindOverlaps(start, end) {
 		intervals = append(intervals, interval)

@@ -70,6 +70,43 @@ func (m *referenceModel) all() [][2]int {
 	return res
 }
 
+func (m *referenceModel) computeMerge(start, end int) (toDelete [][2]int, merged [2]int, isIntersect bool) {
+	newStart := start
+	newEnd := end
+	pStart := start - 1
+	pEnd := end + 1
+	for _, it := range m.intervals {
+		if it[0] <= pEnd && pStart <= it[1] {
+			toDelete = append(toDelete, it)
+			if it[0] < newStart {
+				newStart = it[0]
+			}
+			if it[1] > newEnd {
+				newEnd = it[1]
+			}
+		}
+	}
+	merged = [2]int{newStart, newEnd}
+	isIntersect = len(toDelete) > 0
+	return toDelete, merged, isIntersect
+}
+
+func (m *referenceModel) computeSplit(start, end int) (toDelete, toAdd [][2]int, isIntersect bool) {
+	for _, it := range m.intervals {
+		if it[0] <= end && start <= it[1] {
+			toDelete = append(toDelete, it)
+			if it[0] < start {
+				toAdd = append(toAdd, [2]int{it[0], start - 1})
+			}
+			if it[1] > end {
+				toAdd = append(toAdd, [2]int{end + 1, it[1]})
+			}
+		}
+	}
+	isIntersect = len(toDelete) > 0
+	return toDelete, toAdd, isIntersect
+}
+
 // FuzzIntervalTree tests memory integrity and algorithmic correctness of the library.
 func FuzzIntervalTree(f *testing.F) {
 	cmp := func(a, b int) int {
@@ -189,6 +226,34 @@ func FuzzIntervalTree(f *testing.F) {
 						t.Fatalf("Slice() sorting/content mismatch at %d: Tree=[%d,%d], Reference=%v", i, overlaps[i].Start, overlaps[i].End, refAll[i])
 					}
 				}
+
+			case 6: // COMPUTE MERGE
+				treeDel, treeMerged, treeIntersect := tree.ComputeMerge(s, e)
+				refDel, refMerged, refIntersect := ref.computeMerge(s, e)
+
+				if treeIntersect != refIntersect {
+					t.Fatalf("ComputeMerge intersect mismatch at (%d, %d): Tree=%v, Ref=%v", s, e, treeIntersect, refIntersect)
+				}
+				if treeMerged.Start != refMerged[0] || treeMerged.End != refMerged[1] {
+					t.Fatalf("ComputeMerge merged range mismatch at (%d, %d): Tree=[%d,%d], Ref=%v", s, e, treeMerged.Start, treeMerged.End, refMerged)
+				}
+				if len(treeDel) != len(refDel) {
+					t.Fatalf("ComputeMerge toDelete count mismatch: Tree=%d, Ref=%d", len(treeDel), len(refDel))
+				}
+
+			case 7: // COMPUTE SPLIT
+				treeDel, treeAdd, treeIntersect := tree.ComputeSplit(s, e)
+				refDel, refAdd, refIntersect := ref.computeSplit(s, e)
+
+				if treeIntersect != refIntersect {
+					t.Fatalf("ComputeSplit intersect mismatch at (%d, %d): Tree=%v, Ref=%v", s, e, treeIntersect, refIntersect)
+				}
+				if len(treeDel) != len(refDel) {
+					t.Fatalf("ComputeSplit toDelete count mismatch: Tree=%d, Ref=%d", len(treeDel), len(refDel))
+				}
+				if len(treeAdd) != len(refAdd) {
+					t.Fatalf("ComputeSplit toAdd count mismatch: Tree=%d, Ref=%d", len(treeAdd), len(refAdd))
+				}
 			}
 
 			// CHECK ALL TREE INVARIANTS AFTER EVERY OPERATION
@@ -212,7 +277,7 @@ func verifyTreeInvariants(t *testing.T, tree *IntervalTree[int, struct{}]) {
 
 	validateNode = func(idx, expectedParent uint32) (uint8, int) {
 		if idx == noIdx {
-			return 0, -1 << 63
+			return 0, minInt
 		}
 
 		if visited[idx] {
