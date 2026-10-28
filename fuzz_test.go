@@ -159,7 +159,7 @@ func FuzzIntervalTree(f *testing.F) {
 				s, e = e, s
 			}
 
-			switch op % 6 {
+			switch op % 8 {
 			case 0: // INSERT
 				_ = tree.Insert(s, e, struct{}{})
 				ref.insert(s, e)

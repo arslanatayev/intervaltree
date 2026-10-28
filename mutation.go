@@ -143,8 +143,7 @@ func (t *IntervalTree[K, V]) Delete(start, end K) bool {
 		successorIdx := current
 		parentIdx = t.Nodes[successorIdx].ParentIdx
 
-		t.Nodes[currentIdx].Start = t.Nodes[successorIdx].Start
-		t.Nodes[currentIdx].End = t.Nodes[successorIdx].End
+		t.Nodes[currentIdx].Interval = t.Nodes[successorIdx].Interval
 
 		if t.Nodes[parentIdx].LeftIdx == successorIdx {
 			t.Nodes[parentIdx].LeftIdx = t.Nodes[successorIdx].RightIdx

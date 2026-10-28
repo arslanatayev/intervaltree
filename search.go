@@ -182,3 +182,27 @@ func (t *IntervalTree[K, V]) Stabs(point K) iter.Seq[Interval[K, V]] {
 func (t *IntervalTree[K, V]) StabsSlice(point K) []Interval[K, V] {
 	return t.FindOverlapsSlice(point, point)
 }
+
+// Get searches the tree for an interval matching [start, end] exactly and returns its associated
+// value and true if found, or zero value and false otherwise.
+func (t *IntervalTree[K, V]) Get(start, end K) (value V, ok bool) {
+	target := Interval[K, V]{
+		Start: start,
+		End:   end,
+	}
+	currentIdx := t.RootIdx
+
+	for currentIdx != noIdx {
+		node := &t.Nodes[currentIdx]
+		cmp := t.cmpIntervals(target, node.Interval)
+		if cmp < 0 {
+			currentIdx = node.LeftIdx
+		} else if cmp > 0 {
+			currentIdx = node.RightIdx
+		} else {
+			return node.Value, true
+		}
+	}
+
+	return value, false
+}
