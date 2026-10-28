@@ -150,7 +150,7 @@ func (t *IntervalTree[K, V]) All() iter.Seq[Interval[K, V]] {
 // This is convenient when you need a concrete slice instead of an iterator, or when performing 
 // tree mutations (Insert/Delete) based on search results to avoid concurrent iterator modification issues.
 func (t *IntervalTree[K, V]) Slice() (intervals []Interval[K, V]) {
-	capacity := len(t.Nodes) - len(t.FreeIndex)
+	capacity := t.Len()
 
 	intervals = make([]Interval[K, V], 0, capacity)
 

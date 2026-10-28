@@ -73,10 +73,8 @@ func (m *referenceModel) all() [][2]int {
 func (m *referenceModel) computeMerge(start, end int) (toDelete [][2]int, merged [2]int, isIntersect bool) {
 	newStart := start
 	newEnd := end
-	pStart := start - 1
-	pEnd := end + 1
 	for _, it := range m.intervals {
-		if it[0] <= pEnd && pStart <= it[1] {
+		if it[0] <= end && start <= it[1] {
 			toDelete = append(toDelete, it)
 			if it[0] < newStart {
 				newStart = it[0]
@@ -89,6 +87,36 @@ func (m *referenceModel) computeMerge(start, end int) (toDelete [][2]int, merged
 	merged = [2]int{newStart, newEnd}
 	isIntersect = len(toDelete) > 0
 	return toDelete, merged, isIntersect
+}
+
+func (m *referenceModel) mergeAll() {
+	if len(m.intervals) <= 1 {
+		return
+	}
+
+	sort.Slice(m.intervals, func(i, j int) bool {
+		if m.intervals[i][0] != m.intervals[j][0] {
+			return m.intervals[i][0] < m.intervals[j][0]
+		}
+		return m.intervals[i][1] < m.intervals[j][1]
+	})
+
+	var merged [][2]int
+	current := m.intervals[0]
+
+	for i := 1; i < len(m.intervals); i++ {
+		next := m.intervals[i]
+		if next[0] <= current[1] + 1 {
+			if next[1] > current[1] {
+				current[1] = next[1]
+			}
+		} else {
+			merged = append(merged, current)
+			current = next
+		}
+	}
+	merged = append(merged, current)
+	m.intervals = merged
 }
 
 func (m *referenceModel) computeSplit(start, end int) (toDelete, toAdd [][2]int, isIntersect bool) {
@@ -159,7 +187,7 @@ func FuzzIntervalTree(f *testing.F) {
 				s, e = e, s
 			}
 
-			switch op % 8 {
+			switch op % 9 {
 			case 0: // INSERT
 				_ = tree.Insert(s, e, struct{}{})
 				ref.insert(s, e)
@@ -228,7 +256,7 @@ func FuzzIntervalTree(f *testing.F) {
 				}
 
 			case 6: // COMPUTE MERGE
-				treeDel, treeMerged, treeIntersect := tree.ComputeMerge(s, e)
+				treeDel, treeMerged, treeIntersect := tree.ComputeMerge(s, e, struct{}{})
 				refDel, refMerged, refIntersect := ref.computeMerge(s, e)
 
 				if treeIntersect != refIntersect {
@@ -241,7 +269,11 @@ func FuzzIntervalTree(f *testing.F) {
 					t.Fatalf("ComputeMerge toDelete count mismatch: Tree=%d, Ref=%d", len(treeDel), len(refDel))
 				}
 
-			case 7: // COMPUTE SPLIT
+			case 7: // MERGE ALL
+				tree.MergeAll()
+				ref.mergeAll()
+
+			case 8: // COMPUTE SPLIT
 				treeDel, treeAdd, treeIntersect := tree.ComputeSplit(s, e)
 				refDel, refAdd, refIntersect := ref.computeSplit(s, e)
 

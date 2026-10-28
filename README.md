@@ -123,6 +123,14 @@ if ok {
 }
 ```
 
+### Bulk Interval Merging (`MergeAll`)
+
+If you want to consolidate all overlapping or contiguous intervals across the entire tree in a single pass without managing individual computations manually, use `MergeAll`:
+
+```go
+tree.MergeAll()
+```
+
 ### Interval Splitting / Punch-Hole (`ComputeSplit`)
 
 Computes necessary cuts and fragment ranges when punching an interval hole through existing sets:
@@ -217,6 +225,15 @@ type SafeTree[K any, V any] struct {
     mu   sync.RWMutex
     tree *intervaltree.IntervalTree[K, V]
 }
+```
+
+### Automatic Merging and MergeAll
+`intervaltree` **does not perform automatic merging**. The `Insert` method treats each interval independently, meaning it does not automatically merge overlapping ranges and returns `false` if an exact duplicate already exists. 
+
+If you want to consolidate all overlapping or contiguous intervals across the entire tree in a single pass, you can use the **`MergeAll()`** method:
+
+```go
+tree.MergeAll()
 ```
 
 ## LICENSE

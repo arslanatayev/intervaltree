@@ -117,7 +117,25 @@ func BenchmarkComputeMerge(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		s := rng.Intn(1_000_000)
-		_, _, _ = tree.ComputeMerge(s, s+50)
+		_, _, _ = tree.ComputeMerge(s, s+50, struct{}{})
+	}
+}
+
+func BenchmarkMergeAll(b *testing.B) {
+	const size = 10_000
+	rng := rand.New(rand.NewSource(42))
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		tree := defaultTree(size)
+		for j := 0; j < size; j++ {
+			s := rng.Intn(50_000)
+			_ = tree.Insert(s, s+rng.Intn(100), struct{}{})
+		}
+
+		tree.MergeAll()
 	}
 }
 

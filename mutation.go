@@ -87,7 +87,7 @@ func (t *IntervalTree[K, V]) allocateNode(newNode Node[K, V]) uint32 {
 		t.Nodes[idx] = newNode
 		return idx
 	}
-	idx := uint32(len(t.Nodes))
+	idx := uint32(t.Len())
 	t.Nodes = append(t.Nodes, newNode)
 	return idx
 }

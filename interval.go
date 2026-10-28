@@ -1,14 +1,16 @@
 package intervaltree
 
+import "reflect"
+
 // ComputeMerge finds overlapping intervals to remove and computes a single merged range for the new addition.
-func (t *IntervalTree[K, V]) ComputeMerge(start, end K) (toDelete []Interval[K, V], merged Interval[K, V], isIntersect bool) {
-	isIntersect = false
+func (t *IntervalTree[K, V]) ComputeMerge(start, end K, value V) (toDelete []Interval[K, V], merged Interval[K, V], isIntersect bool) {
+	var altValue V
 	toDelete = make([]Interval[K, V], 0, defaultCapacity)
 
 	newStart := start
 	newEnd := end
 
-	for interval := range t.FindOverlaps(t.Prev(start), t.Next(end)) {
+	for interval := range t.FindOverlaps(start, end) {
 		toDelete = append(toDelete, interval)
 
 		if t.Cmp(interval.Start, newStart) < 0 {
@@ -16,19 +18,61 @@ func (t *IntervalTree[K, V]) ComputeMerge(start, end K) (toDelete []Interval[K, 
 		}
 		if t.Cmp(interval.End, newEnd) > 0 {
 			newEnd = interval.End
+			altValue = interval.Value
 		}
 	}
 
+	if !reflect.ValueOf(value).IsZero() {
+		altValue = value	
+	}
 	merged = Interval[K, V]{
 		Start: newStart,
 		End:   newEnd,
+		Value: altValue,
 	}
 
-	if len(toDelete) > 0 {
-		isIntersect = true
-	}
+	isIntersect = len(toDelete) > 0
 
 	return toDelete, merged, isIntersect
+}
+
+// MergeAll merges all overlapping or contiguous intervals in the tree.
+// It uses an in-order slice traversal (which is already sorted by start keys),
+// merges them in O(N) time, clears the tree, and re-inserts the merged intervals.
+// For overlapping intervals, the value of the latest extending interval is preserved.
+func (t *IntervalTree[K, V]) MergeAll() {
+	if t.Len() <= 1 {
+		return
+	}
+
+	intervals := t.Slice()
+	if len(intervals) == 0 {
+		return
+	}
+
+	merged := make([]Interval[K, V], 0, t.Len())
+	current := intervals[0]
+
+	for i := 1; i < len(intervals); i++ {
+		next := intervals[i]
+
+		if t.Cmp(t.Next(current.End), next.Start) >= 0 {
+			if t.Cmp(current.End, next.End) < 0 {
+				current.End = next.End
+				current.Value = next.Value
+			}
+		} else {
+			merged = append(merged, current)
+			current = next
+		}
+	}
+	merged = append(merged, current)
+
+	t.Reset()
+
+	for _, interval := range merged {
+		t.Insert(interval.Start, interval.End, interval.Value)
+	}
 }
 
 // ComputeSplit detects intervals to delete and calculates any remaining fragment parts to be re-added.
