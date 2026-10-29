@@ -54,7 +54,7 @@ func (t *IntervalTree[K, V]) ComputeMerge(start, end K, value V) (toDelete []Int
 // It uses an in-order slice traversal (which is already sorted by start keys),
 // merges them in O(N) time, clears the tree, and re-inserts the merged intervals.
 // For overlapping intervals, the value of the latest extending interval is preserved.
-func (t *IntervalTree[K, V]) MergeAll() {
+func (t *IntervalTree[K, V]) MergeAll(nextFunc func(a K) K) {
 	if t.Len() <= 1 {
 		return
 	}
@@ -70,7 +70,7 @@ func (t *IntervalTree[K, V]) MergeAll() {
 	for i := 1; i < len(intervals); i++ {
 		next := intervals[i]
 
-		if t.Cmp(t.Next(current.End), next.Start) >= 0 {
+		if t.Cmp(nextFunc(current.End), next.Start) >= 0 {
 			if t.Cmp(current.End, next.End) < 0 {
 				current.End = next.End
 				current.Value = next.Value
@@ -90,7 +90,7 @@ func (t *IntervalTree[K, V]) MergeAll() {
 }
 
 // ComputeSplit detects intervals to delete and calculates any remaining fragment parts to be re-added.
-func (t *IntervalTree[K, V]) ComputeSplit(start, end K) (toDelete, toAdd []Interval[K, V], isIntersect bool) {
+func (t *IntervalTree[K, V]) ComputeSplit(start, end K, prevFunc, nextFunc func(a K) K) (toDelete, toAdd []Interval[K, V], isIntersect bool) {
 	isIntersect = false
 	toDelete = make([]Interval[K, V], 0, defaultCapacity)
 	toAdd = make([]Interval[K, V], 0, defaultCapacity*2)
@@ -102,7 +102,7 @@ func (t *IntervalTree[K, V]) ComputeSplit(start, end K) (toDelete, toAdd []Inter
 		if t.Cmp(interval.Start, start) < 0 {
 			toAdd = append(toAdd, Interval[K, V]{
 				Start: interval.Start,
-				End:   t.Prev(start),
+				End:   prevFunc(start),
 				Value: interval.Value,
 			})
 		}
@@ -110,7 +110,7 @@ func (t *IntervalTree[K, V]) ComputeSplit(start, end K) (toDelete, toAdd []Inter
 		// right fragment: [next(end), interval.End]
 		if t.Cmp(interval.End, end) > 0 {
 			toAdd = append(toAdd, Interval[K, V]{
-				Start: t.Next(end),
+				Start: nextFunc(end),
 				End:   interval.End,
 				Value: interval.Value,
 			})

@@ -41,12 +41,6 @@ type Node[K any, V any] struct {
 // It returns a negative integer if a < b, zero if a == b, or a positive integer if a > b.
 type CompareFunc[K any] func(a, b K) int
 
-// NextFunc returns the immediate successor of a key (e.g., a + 1 for integers).
-type NextFunc[K any] func(a K) K
-
-// PrevFunc returns the immediate predecessor of a key (e.g., a - 1 for integers).
-type PrevFunc[K any] func(a K) K
-
 // Interval represents a closed bounded range [Start, End] where Start <= End.
 type Interval[K any, V any] struct {
 	Start K
@@ -60,19 +54,15 @@ type IntervalTree[K any, V any] struct {
 	FreeIndex []uint32
 	RootIdx   uint32
 	Cmp       CompareFunc[K]
-	Next      NextFunc[K]
-	Prev      PrevFunc[K]
 }
 
 // New constructs and initializes a new IntervalTree with a pre-allocated memory capacity.
-func New[K any, V any](capacity int, cmp CompareFunc[K], prev PrevFunc[K], next NextFunc[K]) *IntervalTree[K, V] {
+func New[K any, V any](capacity int, cmp CompareFunc[K]) *IntervalTree[K, V] {
 	return &IntervalTree[K, V]{
 		Nodes:     make([]Node[K, V], 0, capacity),
 		FreeIndex: make([]uint32, 0, capacity),
 		RootIdx:   noIdx,
 		Cmp:       cmp,
-		Next:      next,
-		Prev:      prev,
 	}
 }
 
@@ -238,7 +228,5 @@ func (t *IntervalTree[K, V]) Clone() *IntervalTree[K, V] {
 		FreeIndex: freeIndex,
 		RootIdx:   t.RootIdx,
 		Cmp:       t.Cmp,
-		Next:      t.Next,
-		Prev:      t.Prev,
 	}
 }

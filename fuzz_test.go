@@ -180,7 +180,7 @@ func FuzzIntervalTree(f *testing.F) {
 			return
 		}
 
-		tree := New[int, struct{}](16, cmp, prev, next)
+		tree := New[int, struct{}](16, cmp)
 		ref := &referenceModel{}
 		reader := bytes.NewReader(data)
 
@@ -284,11 +284,11 @@ func FuzzIntervalTree(f *testing.F) {
 				}
 
 			case 7: // MERGE ALL
-				tree.MergeAll()
+				tree.MergeAll(next)
 				ref.mergeAll()
 
 			case 8: // COMPUTE SPLIT
-				treeDel, treeAdd, treeIntersect := tree.ComputeSplit(s, e)
+				treeDel, treeAdd, treeIntersect := tree.ComputeSplit(s, e, prev, next)
 				refDel, refAdd, refIntersect := ref.computeSplit(s, e)
 
 				if treeIntersect != refIntersect {

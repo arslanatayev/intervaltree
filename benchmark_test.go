@@ -31,9 +31,8 @@ func defaultTree(capacity int) *IntervalTree[int, struct{}] {
 		}
 		return 0
 	}
-	prev := func(a int) int { return a - 1 }
-	next := func(a int) int { return a + 1 }
-	return New[int, struct{}](capacity, cmp, prev, next)
+	
+	return New[int, struct{}](capacity, cmp)
 }
 
 func BenchmarkInsert(b *testing.B) {
@@ -149,7 +148,8 @@ func BenchmarkMergeAll(b *testing.B) {
 			_ = tree.Insert(s, s+rng.Intn(100), struct{}{})
 		}
 
-		tree.MergeAll()
+		next := func(a int) int { return a + 1 }
+		tree.MergeAll(next)
 	}
 }
 
@@ -166,9 +166,11 @@ func BenchmarkComputeSplit(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 
+	prev := func(a int) int { return a - 1 }
+	next := func(a int) int { return a + 1 }
 	for i := 0; i < b.N; i++ {
 		s := rng.Intn(1_000_000)
-		_, _, _ = tree.ComputeSplit(s, s+100)
+		_, _, _ = tree.ComputeSplit(s, s+100, prev, next)
 	}
 }
 

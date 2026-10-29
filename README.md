@@ -68,12 +68,7 @@ func main() {
 	}
 
 	// Initialize an interval tree for integers and custom value types with initial capacity
-	tree := intervaltree.New[int, struct{}](
-		1024,
-		cmp.Compare[int],                     // Comparison function
-		func(v int) int { return v - 1 },     // Prev function
-		func(v int) int { return v + 1 },     // Next function
-	)
+	tree := intervaltree.New[int, struct{}](1024, cmp.Compare[int])
 
 	// Insert intervals and check bool return status using a loop
 	for _, interval := range intervals {
@@ -128,7 +123,8 @@ if ok {
 If you want to consolidate all overlapping or contiguous intervals across the entire tree in a single pass without managing individual computations manually, use `MergeAll`:
 
 ```go
-tree.MergeAll()
+next := func(a int) int { return a + 1 } // Next function for int
+tree.MergeAll(next)
 ```
 
 ### Interval Splitting / Punch-Hole (`ComputeSplit`)
@@ -136,6 +132,9 @@ tree.MergeAll()
 Computes necessary cuts and fragment ranges when punching an interval hole through existing sets:
 
 ```go
+prev := func(a int) int { return a - 1 }
+next := func(a int) int { return a + 1 }
+
 toDelete, toAdd, ok := tree.ComputeSplit(12, 18)
 if ok {
     for _, interval := range toDelete {
@@ -170,28 +169,25 @@ Memory: [ Node 0 | Node 1 | Node 2 | Node 3 | ... ] (Flat, cache-local slice)
 ## Important Notes
 
 ### Boundary Safety in Custom Next/Prev Functions
-The tree relies on your custom `Next` and `Prev` functions for discrete interval logic (e.g., in `ComputeMerge` and `ComputeSplit`). **The library does not perform boundary checks on arithmetic operations inside these functions.**
+The tree relies on your custom `Next` and `Prev` functions passed to methods like `ComputeSplit` or `MergeAll` for discrete interval logic. **The library does not perform boundary checks on arithmetic operations inside these functions.**
 
 To avoid integer overflow/underflow or panics when reaching domain extremes (e.g., `math.MaxInt` or `math.MinInt`), you must handle boundary checks within your supplied callbacks:
 
 ```go
 // Example: Safe Prev/Next functions for int
-tree := intervaltree.New[int, struct{}](
-    1024,
-    cmp.Compare[int],
-    func(v int) int {
-        if v == math.MinInt {
-            return v // Prevent underflow
-        }
-        return v - 1
-    },
-    func(v int) int {
-        if v == math.MaxInt {
-            return v // Prevent overflow
-        }
-        return v + 1
-    },
-)
+prev := func(v int) int {
+    if v == math.MinInt {
+        return v // Prevent underflow
+    }
+    return v - 1
+}
+
+next := func(v int) int {
+    if v == math.MaxInt {
+        return v // Prevent overflow
+    }
+    return v + 1
+}
 ```
 
 ### Mutation During Iteration
@@ -233,9 +229,12 @@ type SafeTree[K any, V any] struct {
 If you want to consolidate all overlapping or contiguous intervals across the entire tree in a single pass, you can use the **`MergeAll()`** method:
 
 ```go
-tree.MergeAll()
+next := func(a int) int { return a + 1 }
+tree.MergeAll(next)
 ```
 
 ## LICENSE
 
 This project is licensed under the Apache license, Version 2.0. See the [LICENSE](LICENSE) file for details.
+// Prev and next functions for int
+// Prev and next functions for int
