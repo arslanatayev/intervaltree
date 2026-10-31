@@ -16,16 +16,16 @@
 // pointer-free AVL interval tree backed by a flat contiguous slice.
 package intervaltree
 
-import "math"
+import (
+	"math"
+	"cmp"
+)
 
 // noIdx represents a sentinel index used to denote a null or non-existent node reference.
 const noIdx uint32 = math.MaxUint32
 
 // defaultCapacity defines the initial capacity allocated for slices or buffers to avoid frequent allocations.
 const defaultCapacity = 16
-
-// minInt represents the platform-dependent minimum integer value, used for boundary initialization in tree validations.
-const minInt = math.MinInt
 
 // Node represents a single interval element stored within a contiguous slice backing the tree.
 type Node[K any, V any] struct {
@@ -64,6 +64,13 @@ func New[K any, V any](capacity int, cmp CompareFunc[K]) *IntervalTree[K, V] {
 		RootIdx:   noIdx,
 		Cmp:       cmp,
 	}
+}
+
+// NewOrdered initializes and returns a new empty IntervalTree pre-allocated with the
+// specified capacity for key types that satisfy cmp.Ordered (all integer, float, and string types).
+// It automatically configures cmp.Compare as the comparison function.
+func NewOrdered[K cmp.Ordered, V any](capacity int) *IntervalTree[K, V] {
+	return New[K, V](capacity, cmp.Compare[K])
 }
 
 // Reset clears all active nodes and free indices while retaining the underlying slice allocations.

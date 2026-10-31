@@ -15,6 +15,7 @@
 package intervaltree
 
 import (
+	"math"
 	"bytes"
 	"encoding/binary"
 	"sort"
@@ -343,6 +344,8 @@ func FuzzIntervalTree(f *testing.F) {
 
 // verifyTreeInvariants validates the tree's AVL rules, MaxEnd calculations, and parent-child pointers.
 func verifyTreeInvariants(t *testing.T, tree *IntervalTree[int, struct{}]) {
+	const minInt = math.MinInt
+
 	if tree.RootIdx == noIdx {
 		activeCount := len(tree.Nodes) - len(tree.FreeIndex)
 		if activeCount != 0 {

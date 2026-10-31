@@ -18,8 +18,11 @@ package intervaltree
 // It reuses a recycled node index from FreeIndex if available, otherwise appends a new node,
 // and rebalances the tree bottom-up along the insertion path.
 // Returns true if the interval was successfully inserted, or false if it already existed.
-// Precondition: start <= end
 func (t *IntervalTree[K, V]) Insert(start, end K, value V) bool {
+	if t.Cmp(start, end) > 0 {
+		return false
+	}
+
 	var newIndex uint32
 	var isLeft bool
 	target := Interval[K, V]{
@@ -101,7 +104,7 @@ func (t *IntervalTree[K, V]) allocateNode(newNode Node[K, V]) uint32 {
 		t.Nodes[idx] = newNode
 		return idx
 	}
-	idx := uint32(t.Len())
+	idx := uint32(len(t.Nodes))
 	t.Nodes = append(t.Nodes, newNode)
 	return idx
 }

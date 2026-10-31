@@ -26,14 +26,18 @@ Designed with **Data-Oriented Design (DOD)** principles, `intervaltree` eliminat
 Tested on **AMD Ryzen 7 7730U** (Linux amd64, Go 1.24):
 
 ```text
-BenchmarkInsert-16         2611338    1016 ns/op        52 B/op    0 allocs/op
-BenchmarkExactMatch-16     14840359   156.4 ns/op        0 B/op    0 allocs/op
-BenchmarkCovers-16         12061328   167.8 ns/op        0 B/op    0 allocs/op
-BenchmarkFindOverlaps-16   3473763    782.0 ns/op        0 B/op    0 allocs/op
-BenchmarkComputeMerge-16   3461788    621.2 ns/op      408 B/op    1 allocs/op
-BenchmarkComputeSplit-16   1715494    1269 ns/op      1776 B/op    2 allocs/op
-BenchmarkDelete-16         3206364    1099 ns/op         0 B/op    0 allocs/op
-BenchmarkGCPause-16        12926      183841 ns/op       8 B/op    0 allocs/op (177.0 µs/GC)
+BenchmarkInsert-16                  1460402     1478 ns/op       52 B/op    0 allocs/op
+BenchmarkExactMatch-16              6911660    338.8 ns/op        0 B/op    0 allocs/op
+BenchmarkCovers-16                  6741130    333.6 ns/op        0 B/op    0 allocs/op
+BenchmarkFindOverlaps-16            3548782    593.2 ns/op        0 B/op    0 allocs/op
+BenchmarkFindOverlapsSlice-16       2080587    999.5 ns/op     1185 B/op    2 allocs/op
+BenchmarkGet-16                     7054875    785.6 ns/op        0 B/op    0 allocs/op
+BenchmarkComputeMerge-16            3440952    637.9 ns/op      405 B/op    1 allocs/op
+BenchmarkComputeContiguousMerge-16  3356214    631.2 ns/op      408 B/op    1 allocs/op
+BenchmarkMergeAll-16                    696  3471677 ns/op  1015810 B/op    4 allocs/op
+BenchmarkComputeSplit-16            1543135     1355 ns/op     1776 B/op    2 allocs/op
+BenchmarkDelete-16                  3115005     1190 ns/op        0 B/op    0 allocs/op
+BenchmarkGCPause-16                    8157   306107 ns/op        2 B/op    0 allocs/op    350.0 µs/GC
 ```
 ![Image](assets/benchmark_output.png)
 
@@ -47,6 +51,8 @@ The tree balance, index recycling, and overlap invariants were fuzzed over milli
 ```bash
 go get github.com/arslanatayev/intervaltree
 ```
+
+Note: Iterator-based traversal methods (such as FindOverlaps and All) leverage native range-over-func iterators (iter.Seq), requiring Go 1.23 or higher. Core operations like Insert, Delete, ExactMatch, and Covers work independently.
 
 ## Quick Start
 
@@ -67,8 +73,11 @@ func main() {
 		{Start: 30, End: 40, Value: struct{}{}},
 	}
 
-	// Initialize an interval tree for integers and custom value types with initial capacity
-	tree := intervaltree.New[int, struct{}](1024, cmp.Compare[int])
+    // Initialize an interval tree using NewOrdered for ordered types (integers, floats, strings) with initial capacity
+	tree := intervaltree.NewOrdered[int, struct{}](1024)
+
+	// OR: For custom types or explicit comparison control, use New:
+	// tree := intervaltree.New[int, struct{}](1024, cmp.Compare[int])
 
 	// Insert intervals and check bool return status using a loop
 	for _, interval := range intervals {
@@ -107,7 +116,7 @@ func main() {
 Computes merged bounding intervals for inserting adjacent or overlapping segments without redundant nodes:
 
 ```go
-toDelete, merged, ok := tree.ComputeMerge(21, 29)
+toDelete, merged, ok := tree.ComputeMerge(21, 29, struct{}{})
 if ok {
     // Delete obsolete intervals
     for _, interval := range toDelete {
