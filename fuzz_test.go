@@ -103,6 +103,25 @@ func (m *referenceModel) computeMerge(start, end int) (toDelete [][2]int, merged
 	return toDelete, merged, isIntersect
 }
 
+func (m *referenceModel) computeContiguousMerge(start, end int) (toDelete [][2]int, merged [2]int, isIntersect bool) {
+	newStart := start
+	newEnd := end
+	for _, it := range m.intervals {
+		if it[0] <= end+1 && start-1 <= it[1] {
+			toDelete = append(toDelete, it)
+			if it[0] < newStart {
+				newStart = it[0]
+			}
+			if it[1] > newEnd {
+				newEnd = it[1]
+			}
+		}
+	}
+	merged = [2]int{newStart, newEnd}
+	isIntersect = len(toDelete) > 0
+	return toDelete, merged, isIntersect
+}
+
 func (m *referenceModel) mergeAll() {
 	if len(m.intervals) <= 1 {
 		return
@@ -201,7 +220,7 @@ func FuzzIntervalTree(f *testing.F) {
 				s, e = e, s
 			}
 
-			switch op % 9 {
+			switch op % 10 {
 			case 0: // INSERT
 				_ = tree.Insert(s, e, struct{}{})
 				ref.insert(s, e)
@@ -283,11 +302,25 @@ func FuzzIntervalTree(f *testing.F) {
 					t.Fatalf("ComputeMerge toDelete count mismatch: Tree=%d, Ref=%d", len(treeDel), len(refDel))
 				}
 
-			case 7: // MERGE ALL
+			case 7: // COMPUTE CONTIGUOUS MERGE
+				treeDel, treeMerged, treeIntersect := tree.ComputeContiguousMerge(s, e, struct{}{}, prev, next)
+				refDel, refMerged, refIntersect := ref.computeContiguousMerge(s, e)
+
+				if treeIntersect != refIntersect {
+					t.Fatalf("ComputeMerge intersect mismatch at (%d, %d): Tree=%v, Ref=%v", s, e, treeIntersect, refIntersect)
+				}
+				if treeMerged.Start != refMerged[0] || treeMerged.End != refMerged[1] {
+					t.Fatalf("ComputeMerge merged range mismatch at (%d, %d): Tree=[%d,%d], Ref=%v", s, e, treeMerged.Start, treeMerged.End, refMerged)
+				}
+				if len(treeDel) != len(refDel) {
+					t.Fatalf("ComputeMerge toDelete count mismatch: Tree=%d, Ref=%d", len(treeDel), len(refDel))
+				}
+
+			case 8: // MERGE ALL
 				tree.MergeAll(next)
 				ref.mergeAll()
 
-			case 8: // COMPUTE SPLIT
+			case 9: // COMPUTE SPLIT
 				treeDel, treeAdd, treeIntersect := tree.ComputeSplit(s, e, prev, next)
 				refDel, refAdd, refIntersect := ref.computeSplit(s, e)
 

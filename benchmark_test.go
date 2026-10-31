@@ -134,6 +134,27 @@ func BenchmarkComputeMerge(b *testing.B) {
 	}
 }
 
+func BenchmarkComputeContiguousMerge(b *testing.B) {
+	const size = 100_000
+	tree := defaultTree(size)
+	rng := rand.New(rand.NewSource(42))
+
+	for i := 0; i < size; i++ {
+		s := rng.Intn(1_000_000)
+		_ = tree.Insert(s, s+rng.Intn(100), struct{}{})
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	prev := func(a int) int { return a - 1 }
+	next := func(a int) int { return a + 1 }
+	for i := 0; i < b.N; i++ {
+		s := rng.Intn(1_000_000)
+		_, _, _ = tree.ComputeContiguousMerge(s, s+50, struct{}{}, prev, next)
+	}
+}
+
 func BenchmarkMergeAll(b *testing.B) {
 	const size = 10_000
 	rng := rand.New(rand.NewSource(42))

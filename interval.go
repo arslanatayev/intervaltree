@@ -50,6 +50,41 @@ func (t *IntervalTree[K, V]) ComputeMerge(start, end K, value V) (toDelete []Int
 	return toDelete, merged, isIntersect
 }
 
+// ComputeContiguousMerge finds overlapping or contiguous intervals to remove 
+// and computes a single merged range for the new addition, using prev/next functions.
+func (t *IntervalTree[K, V]) ComputeContiguousMerge(start, end K, value V, prevFunc, nextFunc func(a K) K) (toDelete []Interval[K, V], merged Interval[K, V], isIntersect bool) {
+	var altValue V
+	toDelete = make([]Interval[K, V], 0, defaultCapacity)
+
+	newStart := start
+	newEnd := end
+
+	for interval := range t.FindOverlaps(prevFunc(start), nextFunc(end)) {
+		toDelete = append(toDelete, interval)
+
+		if t.Cmp(interval.Start, newStart) < 0 {
+			newStart = interval.Start
+		}
+		if t.Cmp(interval.End, newEnd) > 0 {
+			newEnd = interval.End
+			altValue = interval.Value
+		}
+	}
+
+	if !reflect.ValueOf(value).IsZero() {
+		altValue = value	
+	}
+	merged = Interval[K, V]{
+		Start: newStart,
+		End:   newEnd,
+		Value: altValue,
+	}
+
+	isIntersect = len(toDelete) > 0
+
+	return toDelete, merged, isIntersect
+}
+
 // MergeAll merges all overlapping or contiguous intervals in the tree.
 // It uses an in-order slice traversal (which is already sorted by start keys),
 // merges them in O(N) time, clears the tree, and re-inserts the merged intervals.

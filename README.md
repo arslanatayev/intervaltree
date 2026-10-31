@@ -118,6 +118,25 @@ if ok {
 }
 ```
 
+### Contiguous Interval Merging (`ComputeContiguousMerge`)
+
+If you need to merge both overlapping and contiguous intervals for a new addition using custom boundary functions (`prev` and `next`), use `ComputeContiguousMerge`:
+
+```go
+prev := func(a int) int { return a - 1 }
+next := func(a int) int { return a + 1 }
+
+toDelete, merged, ok := tree.ComputeContiguousMerge(21, 29, struct{}{}, prev, next)
+if ok {
+    // Delete obsolete overlapping or contiguous intervals
+    for _, interval := range toDelete {
+        tree.Delete(interval.Start, interval.End)
+    }
+    // Insert single consolidated range
+    tree.Insert(merged.Start, merged.End, struct{}{})
+}
+```
+
 ### Bulk Interval Merging (`MergeAll`)
 
 If you want to consolidate all overlapping or contiguous intervals across the entire tree in a single pass without managing individual computations manually, use `MergeAll`:
@@ -236,5 +255,3 @@ tree.MergeAll(next)
 ## LICENSE
 
 This project is licensed under the Apache license, Version 2.0. See the [LICENSE](LICENSE) file for details.
-// Prev and next functions for int
-// Prev and next functions for int
