@@ -1,8 +1,9 @@
 # intervaltree
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/arslanatayev/intervaltree.svg)](https://pkg.go.dev/github.com/arslanatayev/intervaltree)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/arslanatayev/intervaltree)](https://github.com/arslanatayev/intervaltree)
+[![Release](https://img.shields.io/github/v/release/arslanatayev/intervaltree)](https://github.com/arslanatayev/intervaltree/releases)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Go Report Card](https://goreportcard.com/badge/github.com/arslanatayev/intervaltree)](https://goreportcard.com/report/github.com/arslanatayev/intervaltree)
 
 A high-performance, memory-efficient, and pointer-free **AVL-augmented Interval Tree** written in Go using generics.
 
