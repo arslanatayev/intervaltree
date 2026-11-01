@@ -21,7 +21,7 @@ func (t *IntervalTree[K, V]) ComputeMerge(start, end K, value V) (toDelete []Int
 	newStart := start
 	newEnd := end
 
-	for interval := range t.FindOverlaps(start, end) {
+	for interval := range t.Overlaps(start, end) {
 		toDelete = append(toDelete, interval)
 
 		if t.Cmp(interval.Start, newStart) < 0 {
@@ -51,7 +51,7 @@ func (t *IntervalTree[K, V]) ComputeContiguousMerge(start, end K, value V, prevF
 	newStart := start
 	newEnd := end
 
-	for interval := range t.FindOverlaps(prevFunc(start), nextFunc(end)) {
+	for interval := range t.Overlaps(prevFunc(start), nextFunc(end)) {
 		toDelete = append(toDelete, interval)
 
 		if t.Cmp(interval.Start, newStart) < 0 {
@@ -82,7 +82,7 @@ func (t *IntervalTree[K, V]) MergeAll(nextFunc func(a K) K) {
 		return
 	}
 
-	intervals := t.Slice()
+	intervals := t.AllSlice()
 	if len(intervals) == 0 {
 		return
 	}
@@ -118,7 +118,7 @@ func (t *IntervalTree[K, V]) ComputeSplit(start, end K, prevFunc, nextFunc func(
 	toDelete = make([]Interval[K, V], 0, defaultCapacity)
 	toAdd = make([]Interval[K, V], 0, defaultCapacity*2)
 
-	for interval := range t.FindOverlaps(start, end) {
+	for interval := range t.Overlaps(start, end) {
 		toDelete = append(toDelete, interval)
 
 		// left fragment: [interval.Start, prev(start)]

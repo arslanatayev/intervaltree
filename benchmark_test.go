@@ -96,7 +96,7 @@ func BenchmarkCovers(b *testing.B) {
 	}
 }
 
-func BenchmarkFindOverlaps(b *testing.B) {
+func BenchmarkOverlaps(b *testing.B) {
 	const size = 100_000
 	tree := defaultTree(size)
 	rng := rand.New(rand.NewSource(42))
@@ -111,11 +111,11 @@ func BenchmarkFindOverlaps(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		s := rng.Intn(1_000_000)
-		for range tree.FindOverlaps(s, s+100) {}
+		for range tree.Overlaps(s, s+100) {}
 	}
 }
 
-func BenchmarkFindOverlapsSlice(b *testing.B) {
+func BenchmarkOverlapsSlice(b *testing.B) {
 	const size = 100_000
 	tree := defaultTree(size)
 	rng := rand.New(rand.NewSource(42))
@@ -130,7 +130,7 @@ func BenchmarkFindOverlapsSlice(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		s := rng.Intn(1_000_000)
-		_ = tree.FindOverlapsSlice(s, s+100)
+		_ = tree.OverlapsSlice(s, s+100)
 	}
 }
 

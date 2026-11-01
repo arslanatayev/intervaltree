@@ -63,7 +63,7 @@ func (m *referenceModel) covers(start, end int) bool {
 	return false
 }
 
-func (m *referenceModel) findOverlaps(start, end int) [][2]int {
+func (m *referenceModel) Overlaps(start, end int) [][2]int {
 	var res [][2]int
 	for _, it := range m.intervals {
 		if it[0] <= end && start <= it[1] {
@@ -192,7 +192,7 @@ func FuzzIntervalTree(f *testing.F) {
 		0, 10, 20, // Duplicate Insert [10, 20]
 		2, 10, 20, // ExactMatch
 		3, 12, 18, // Covers
-		4, 15, 25, // FindOverlaps
+		4, 15, 25, // Overlaps
 	})
 
 	f.Fuzz(func(t *testing.T, data []byte) {
@@ -245,11 +245,11 @@ func FuzzIntervalTree(f *testing.F) {
 				}
 
 			case 4: // FIND OVERLAPS
-				overlaps := tree.FindOverlapsSlice(s, e)
-				refOverlaps := ref.findOverlaps(s, e)
+				overlaps := tree.OverlapsSlice(s, e)
+				refOverlaps := ref.Overlaps(s, e)
 
 				if len(overlaps) != len(refOverlaps) {
-					t.Fatalf("FindOverlaps(%d, %d) size error: Tree=%d, Reference=%d", s, e, len(overlaps), len(refOverlaps))
+					t.Fatalf("Overlaps(%d, %d) size error: Tree=%d, Reference=%d", s, e, len(overlaps), len(refOverlaps))
 				}
 
 				// Sort overlapping intervals and verify
@@ -272,20 +272,20 @@ func FuzzIntervalTree(f *testing.F) {
 
 				for i := range treeIntervals {
 					if treeIntervals[i] != refOverlaps[i] {
-						t.Fatalf("FindOverlaps element mismatch: Tree=%v, Reference=%v", treeIntervals[i], refOverlaps[i])
+						t.Fatalf("Overlaps element mismatch: Tree=%v, Reference=%v", treeIntervals[i], refOverlaps[i])
 					}
 				}
 
-			case 5: // Slice
-				overlaps := tree.Slice()
+			case 5: // AllSlice
+				overlaps := tree.AllSlice()
 				refAll := ref.all()
 
 				if len(overlaps) != len(refAll) {
-					t.Fatalf("Slice() element count mismatch: Tree=%d, Reference=%d", len(overlaps), len(refAll))
+					t.Fatalf("AllSlice() element count mismatch: Tree=%d, Reference=%d", len(overlaps), len(refAll))
 				}
 				for i := range overlaps {
 					if overlaps[i].Start != refAll[i][0] || overlaps[i].End != refAll[i][1] {
-						t.Fatalf("Slice() sorting/content mismatch at %d: Tree=[%d,%d], Reference=%v", i, overlaps[i].Start, overlaps[i].End, refAll[i])
+						t.Fatalf("AllSlice() sorting/content mismatch at %d: Tree=[%d,%d], Reference=%v", i, overlaps[i].Start, overlaps[i].End, refAll[i])
 					}
 				}
 

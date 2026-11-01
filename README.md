@@ -26,18 +26,18 @@ Designed with **Data-Oriented Design (DOD)** principles, `intervaltree` eliminat
 Tested on **AMD Ryzen 7 7730U** (Linux amd64, Go 1.24):
 
 ```text
-BenchmarkInsert-16                  1460402     1478 ns/op       52 B/op    0 allocs/op
-BenchmarkExactMatch-16              6911660    338.8 ns/op        0 B/op    0 allocs/op
-BenchmarkCovers-16                  6741130    333.6 ns/op        0 B/op    0 allocs/op
-BenchmarkFindOverlaps-16            3548782    593.2 ns/op        0 B/op    0 allocs/op
-BenchmarkFindOverlapsSlice-16       2080587    999.5 ns/op     1185 B/op    2 allocs/op
-BenchmarkGet-16                     7054875    785.6 ns/op        0 B/op    0 allocs/op
-BenchmarkComputeMerge-16            3440952    637.9 ns/op      405 B/op    1 allocs/op
-BenchmarkComputeContiguousMerge-16  3356214    631.2 ns/op      408 B/op    1 allocs/op
-BenchmarkMergeAll-16                    696  3471677 ns/op  1015810 B/op    4 allocs/op
-BenchmarkComputeSplit-16            1543135     1355 ns/op     1776 B/op    2 allocs/op
-BenchmarkDelete-16                  3115005     1190 ns/op        0 B/op    0 allocs/op
-BenchmarkGCPause-16                    8157   306107 ns/op        2 B/op    0 allocs/op    350.0 µs/GC
+BenchmarkInsert-16                  1463577     1475 ns/op       52 B/op    0 allocs/op
+BenchmarkExactMatch-16              7317874    313.6 ns/op        0 B/op    0 allocs/op
+BenchmarkCovers-16                  6945052    323.5 ns/op        0 B/op    0 allocs/op
+BenchmarkOverlaps-16                3624873    567.8 ns/op        0 B/op    0 allocs/op
+BenchmarkOverlapsSlice-16           2165779    970.6 ns/op     1185 B/op    2 allocs/op
+BenchmarkGet-16                     7119218    711.8 ns/op        0 B/op    0 allocs/op
+BenchmarkComputeMerge-16            3748068    630.9 ns/op      405 B/op    1 allocs/op
+BenchmarkComputeContiguousMerge-16  3267121    634.7 ns/op      408 B/op    1 allocs/op
+BenchmarkMergeAll-16                    680  3514667 ns/op  1015809 B/op    4 allocs/op
+BenchmarkComputeSplit-16            1593070     1345 ns/op     1776 B/op    2 allocs/op
+BenchmarkDelete-16                  2997571     1066 ns/op        0 B/op    0 allocs/op
+BenchmarkGCPause-16                    8691   309375 ns/op        3 B/op    0 allocs/op    395.0 µs/GC
 ```
 ![Image](assets/benchmark_output.png)
 
@@ -52,7 +52,7 @@ The tree balance, index recycling, and overlap invariants were fuzzed over milli
 go get github.com/arslanatayev/intervaltree
 ```
 
-Note: Iterator-based traversal methods (such as FindOverlaps and All) leverage native range-over-func iterators (iter.Seq), requiring Go 1.23 or higher. Core operations like Insert, Delete, ExactMatch, and Covers work independently.
+Note: Iterator-based traversal methods (such as Overlaps and All) leverage native range-over-func iterators (iter.Seq), requiring Go 1.23 or higher. Core operations like Insert, Delete, ExactMatch, and Covers work independently.
 
 ## Quick Start
 
@@ -92,7 +92,7 @@ func main() {
 	}
 
 	// 2. Overlap Query (Zero-alloc)
-	for interval := range tree.FindOverlaps(18, 35) {
+	for interval := range tree.Overlaps(18, 35) {
 		fmt.Printf("Overlapping interval: [%d, %d]\n", interval.Start, interval.End)
 	}
 
@@ -219,20 +219,20 @@ next := func(v int) int {
 ```
 
 ### Mutation During Iteration
-Iterator-based methods (`All()`, `FindOverlaps()`, `Stabs()`) yield elements lazily using Go 1.23 iterators (`iter.Seq`). **Never mutate the tree (`Insert` or `Delete`) while actively iterating over it.** 
+Iterator-based methods (`All()`, `Overlaps()`, `Stabs()`) yield elements lazily using Go 1.23 iterators (`iter.Seq`). **Never mutate the tree (`Insert` or `Delete`) while actively iterating over it.** 
 
 Modifying the tree structure during iteration invalidates internal stack states, breaks AVL tree topology due to rotations, and leads to undefined behavior. If you need to modify the tree based on search or traversal results, use the **"Collect-then-Mutate"** pattern. 
 
-For convenience, the library provides dedicated slice-returning methods (`Slice()`, `FindOverlapsSlice()`, `StabsSlice()`) specifically designed for scenarios where you need to collect elements before performing mutations:
+For convenience, the library provides dedicated slice-returning methods (`AllSlice()`, `OverlapsSlice()`, `StabsSlice()`) specifically designed for scenarios where you need to collect elements before performing mutations:
 
 ```go
 // ❌ UNSAFE: Mutating the tree inside the active iterator loop
-for interval := range tree.FindOverlaps(start, end) {
+for interval := range tree.Overlaps(start, end) {
     tree.Delete(interval.Start, interval.End) // DO NOT DO THIS
 }
 
-// ✅ SAFE: Use Slice-returning methods or slices.Collect first, then perform mutations
-overlaps := tree.FindOverlapsSlice(start, end) // Or tree.Slice() for All(), tree.StabsSlice(point) for Stabs()
+// ✅ SAFE: Use slice-returning methods or slices.Collect first, then perform mutations
+overlaps := tree.OverlapsSlice(start, end) // Or tree.AllSlice() for All(), tree.StabsSlice(point) for Stabs()
 
 for _, interval := range overlaps {
     tree.Delete(interval.Start, interval.End)
