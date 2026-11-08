@@ -43,7 +43,7 @@ func (t *IntervalTree[K, V]) ComputeMerge(start, end K, value V) (toDelete []Int
 	return toDelete, merged, isIntersect
 }
 
-// ComputeContiguousMerge finds overlapping or contiguous intervals to remove 
+// ComputeContiguousMerge finds overlapping or contiguous intervals to remove
 // and computes a single merged range for the new addition, using prev/next functions.
 func (t *IntervalTree[K, V]) ComputeContiguousMerge(start, end K, value V, prevFunc, nextFunc func(a K) K) (toDelete []Interval[K, V], merged Interval[K, V], isIntersect bool) {
 	toDelete = make([]Interval[K, V], 0, defaultCapacity)

@@ -17,8 +17,8 @@
 package intervaltree
 
 import (
-	"math"
 	"cmp"
+	"math"
 )
 
 // noIdx represents a sentinel index used to denote a null or non-existent node reference.

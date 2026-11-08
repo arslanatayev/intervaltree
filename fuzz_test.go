@@ -15,9 +15,9 @@
 package intervaltree
 
 import (
-	"math"
 	"bytes"
 	"encoding/binary"
+	"math"
 	"sort"
 	"testing"
 )
@@ -140,7 +140,7 @@ func (m *referenceModel) mergeAll() {
 
 	for i := 1; i < len(m.intervals); i++ {
 		next := m.intervals[i]
-		if next[0] <= current[1] + 1 {
+		if next[0] <= current[1]+1 {
 			if next[1] > current[1] {
 				current[1] = next[1]
 			}
@@ -186,9 +186,9 @@ func FuzzIntervalTree(f *testing.F) {
 	// Seed Corpus: Scenarios to trigger rotations and edge cases
 	f.Add([]byte{
 		0, 10, 20, // Insert [10, 20]
-		0, 5, 15,  // Insert [5, 15]
+		0, 5, 15, // Insert [5, 15]
 		0, 25, 30, // Insert [25, 30]
-		1, 5, 15,  // Delete [5, 15]
+		1, 5, 15, // Delete [5, 15]
 		0, 10, 20, // Duplicate Insert [10, 20]
 		2, 10, 20, // ExactMatch
 		3, 12, 18, // Covers

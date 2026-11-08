@@ -117,7 +117,7 @@ func (t *IntervalTree[K, V]) Overlaps(start, end K) iter.Seq[Interval[K, V]] {
 }
 
 // OverlapsSlice returns all intervals that overlap with the query range [start, end] as a slice.
-// This is convenient when you need a concrete slice instead of an iterator, or when performing 
+// This is convenient when you need a concrete slice instead of an iterator, or when performing
 // tree mutations (Insert/Delete) based on search results to avoid concurrent iterator modification issues.
 func (t *IntervalTree[K, V]) OverlapsSlice(start, end K) []Interval[K, V] {
 	intervals := make([]Interval[K, V], 0, 8)
@@ -161,15 +161,15 @@ func (t *IntervalTree[K, V]) All() iter.Seq[Interval[K, V]] {
 }
 
 // AllSlice returns all active intervals as an in-order slice.
-// This is convenient when you need a concrete slice instead of an iterator, or when performing 
+// This is convenient when you need a concrete slice instead of an iterator, or when performing
 // tree mutations (Insert/Delete) based on search results to avoid concurrent iterator modification issues.
 func (t *IntervalTree[K, V]) AllSlice() (intervals []Interval[K, V]) {
 	capacity := t.Len()
 
 	intervals = make([]Interval[K, V], 0, capacity)
 
-	for iv := range t.All() {
-		intervals = append(intervals, iv)
+	for interval := range t.All() {
+		intervals = append(intervals, interval)
 	}
 
 	return intervals
@@ -191,7 +191,7 @@ func (t *IntervalTree[K, V]) Stabs(point K) iter.Seq[Interval[K, V]] {
 }
 
 // StabsSlice returns all intervals that contain the given point as a slice.
-// This is convenient when you need a concrete slice instead of an iterator, or when performing 
+// This is convenient when you need a concrete slice instead of an iterator, or when performing
 // tree mutations (Insert/Delete) based on search results to avoid concurrent iterator modification issues.
 func (t *IntervalTree[K, V]) StabsSlice(point K) []Interval[K, V] {
 	return t.OverlapsSlice(point, point)

@@ -31,7 +31,7 @@ func defaultTree(capacity int) *IntervalTree[int, struct{}] {
 		}
 		return 0
 	}
-	
+
 	return New[int, struct{}](capacity, cmp)
 }
 
@@ -111,7 +111,8 @@ func BenchmarkOverlaps(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		s := rng.Intn(1_000_000)
-		for range tree.Overlaps(s, s+100) {}
+		for range tree.Overlaps(s, s+100) {
+		}
 	}
 }
 
