@@ -14,12 +14,11 @@
 
 package intervaltree
 
-// Insert inserts a new interval [start, end] into the tree.
-// It reuses a recycled node index from FreeIndex if available, otherwise appends a new node,
-// and rebalances the tree bottom-up along the insertion path.
-// Returns true if the interval was successfully inserted, or false if it already existed.
+// Insert adds the interval [start, end] with the given value. It returns true
+// if a new interval was added. If an interval with the same start and end
+// already exists, Insert replaces its value and returns false.
 func (t *IntervalTree[K, V]) Insert(start, end K, value V) bool {
-	if t.Cmp(start, end) > 0 {
+	if t.cmp(start, end) > 0 {
 		return false
 	}
 
@@ -31,53 +30,54 @@ func (t *IntervalTree[K, V]) Insert(start, end K, value V) bool {
 		Value: value,
 	}
 
-	newNode := Node[K, V]{
+	newNode := node[K, V]{
 		Interval:  target,
-		MaxEnd:    end,
-		Height:    1,
-		LeftIdx:   noIdx,
-		RightIdx:  noIdx,
-		ParentIdx: noIdx,
+		maxEnd:    end,
+		height:    1,
+		leftIdx:   noIdx,
+		rightIdx:  noIdx,
+		parentIdx: noIdx,
 	}
 
 	// Root control
-	if t.RootIdx == noIdx {
-		t.RootIdx = t.allocateNode(newNode)
+	if t.rootIdx == noIdx {
+		t.rootIdx = t.allocateNode(newNode)
 		return true
 	}
 
 	// BST Traversal
-	currentIdx := t.RootIdx
+	currentIdx := t.rootIdx
 	for {
-		cmp := t.cmpIntervals(target, t.Nodes[currentIdx].Interval)
+		cmp := t.cmpIntervals(target, t.nodes[currentIdx].Interval)
 		if cmp < 0 {
-			if t.Nodes[currentIdx].LeftIdx == noIdx {
+			if t.nodes[currentIdx].leftIdx == noIdx {
 				isLeft = true
 				break
 			}
-			currentIdx = t.Nodes[currentIdx].LeftIdx
+			currentIdx = t.nodes[currentIdx].leftIdx
 		} else if cmp > 0 {
-			if t.Nodes[currentIdx].RightIdx == noIdx {
+			if t.nodes[currentIdx].rightIdx == noIdx {
 				isLeft = false
 				break
 			}
-			currentIdx = t.Nodes[currentIdx].RightIdx
+			currentIdx = t.nodes[currentIdx].rightIdx
 		} else {
-			return false // Duplicate interval already exists
+			t.nodes[currentIdx].Value = value
+			return false // Same bounds already exist: replace the value, tree shape is unchanged
 		}
 	}
 
 	newIndex = t.allocateNode(newNode)
 
 	if isLeft {
-		t.Nodes[currentIdx].LeftIdx = newIndex
+		t.nodes[currentIdx].leftIdx = newIndex
 	} else {
-		t.Nodes[currentIdx].RightIdx = newIndex
+		t.nodes[currentIdx].rightIdx = newIndex
 	}
 
-	t.Nodes[newIndex].ParentIdx = currentIdx
+	t.nodes[newIndex].parentIdx = currentIdx
 
-	// Bottom-Up MaxEnd Update And Balance
+	// Bottom-Up maxEnd Update And Balance
 	updateIdx := newIndex
 	for updateIdx != noIdx {
 		t.updateNodeStats(updateIdx)
@@ -88,30 +88,29 @@ func (t *IntervalTree[K, V]) Insert(start, end K, value V) bool {
 			updateIdx = t.rebalance(updateIdx, balance)
 		}
 
-		updateIdx = t.Nodes[updateIdx].ParentIdx
+		updateIdx = t.nodes[updateIdx].parentIdx
 	}
 
 	return true
 }
 
-// allocateNode allocates a new node either by reusing an index from the FreeIndex pool
-// or by appending to the Nodes slice if no recycled indices are available.
-func (t *IntervalTree[K, V]) allocateNode(newNode Node[K, V]) uint32 {
-	if len(t.FreeIndex) > 0 {
-		lastIdx := len(t.FreeIndex) - 1
-		idx := t.FreeIndex[lastIdx]
-		t.FreeIndex = t.FreeIndex[:lastIdx]
-		t.Nodes[idx] = newNode
+// allocateNode allocates a new node either by reusing an index from the freeIndex pool
+// or by appending to the nodes slice if no recycled indices are available.
+func (t *IntervalTree[K, V]) allocateNode(newNode node[K, V]) uint32 {
+	if len(t.freeIndex) > 0 {
+		lastIdx := len(t.freeIndex) - 1
+		idx := t.freeIndex[lastIdx]
+		t.freeIndex = t.freeIndex[:lastIdx]
+		t.nodes[idx] = newNode
 		return idx
 	}
-	idx := uint32(len(t.Nodes))
-	t.Nodes = append(t.Nodes, newNode)
+	idx := uint32(len(t.nodes))
+	t.nodes = append(t.nodes, newNode)
 	return idx
 }
 
-// Delete removes the node that exactly matches the interval [start, end].
-// It recycles the freed slot index into FreeIndex for memory reuse and rebalances the tree upwards.
-// Returns true if the interval was found and successfully deleted, or false if it did not exist.
+// Delete removes the interval with exactly these bounds. It returns false if
+// there is no such interval.
 func (t *IntervalTree[K, V]) Delete(start, end K) bool {
 	var freeIdx uint32
 
@@ -120,13 +119,13 @@ func (t *IntervalTree[K, V]) Delete(start, end K) bool {
 		End:   end,
 	}
 
-	currentIdx := t.RootIdx
+	currentIdx := t.rootIdx
 	for currentIdx != noIdx {
-		cmp := t.cmpIntervals(target, t.Nodes[currentIdx].Interval)
+		cmp := t.cmpIntervals(target, t.nodes[currentIdx].Interval)
 		if cmp < 0 {
-			currentIdx = t.Nodes[currentIdx].LeftIdx
+			currentIdx = t.nodes[currentIdx].leftIdx
 		} else if cmp > 0 {
-			currentIdx = t.Nodes[currentIdx].RightIdx
+			currentIdx = t.nodes[currentIdx].rightIdx
 		} else {
 			break
 		}
@@ -136,63 +135,63 @@ func (t *IntervalTree[K, V]) Delete(start, end K) bool {
 		return false // Interval not found
 	}
 
-	parentIdx := t.Nodes[currentIdx].ParentIdx
+	parentIdx := t.nodes[currentIdx].parentIdx
 
-	if t.Nodes[currentIdx].LeftIdx == noIdx && t.Nodes[currentIdx].RightIdx == noIdx { // Node has no child
+	if t.nodes[currentIdx].leftIdx == noIdx && t.nodes[currentIdx].rightIdx == noIdx { // Node has no child
 		if parentIdx != noIdx {
-			if t.Nodes[parentIdx].LeftIdx == currentIdx {
-				t.Nodes[parentIdx].LeftIdx = noIdx
+			if t.nodes[parentIdx].leftIdx == currentIdx {
+				t.nodes[parentIdx].leftIdx = noIdx
 			} else {
-				t.Nodes[parentIdx].RightIdx = noIdx
+				t.nodes[parentIdx].rightIdx = noIdx
 			}
 		} else {
-			t.RootIdx = noIdx
+			t.rootIdx = noIdx
 		}
 
 		freeIdx = currentIdx
-	} else if t.Nodes[currentIdx].LeftIdx != noIdx && t.Nodes[currentIdx].RightIdx != noIdx { // Node has two child
-		current := t.Nodes[currentIdx].RightIdx
+	} else if t.nodes[currentIdx].leftIdx != noIdx && t.nodes[currentIdx].rightIdx != noIdx { // Node has two child
+		current := t.nodes[currentIdx].rightIdx
 
-		for t.Nodes[current].LeftIdx != noIdx {
-			current = t.Nodes[current].LeftIdx
+		for t.nodes[current].leftIdx != noIdx {
+			current = t.nodes[current].leftIdx
 		}
 
 		successorIdx := current
-		parentIdx = t.Nodes[successorIdx].ParentIdx
+		parentIdx = t.nodes[successorIdx].parentIdx
 
-		t.Nodes[currentIdx].Interval = t.Nodes[successorIdx].Interval
+		t.nodes[currentIdx].Interval = t.nodes[successorIdx].Interval
 
-		if t.Nodes[parentIdx].LeftIdx == successorIdx {
-			t.Nodes[parentIdx].LeftIdx = t.Nodes[successorIdx].RightIdx
+		if t.nodes[parentIdx].leftIdx == successorIdx {
+			t.nodes[parentIdx].leftIdx = t.nodes[successorIdx].rightIdx
 		} else {
-			t.Nodes[parentIdx].RightIdx = t.Nodes[successorIdx].RightIdx
+			t.nodes[parentIdx].rightIdx = t.nodes[successorIdx].rightIdx
 		}
 
-		if t.Nodes[successorIdx].RightIdx != noIdx {
-			t.Nodes[t.Nodes[successorIdx].RightIdx].ParentIdx = parentIdx
+		if t.nodes[successorIdx].rightIdx != noIdx {
+			t.nodes[t.nodes[successorIdx].rightIdx].parentIdx = parentIdx
 		}
 
 		freeIdx = successorIdx
 	} else { // Node has one child
 		var childIdx uint32
 
-		if t.Nodes[currentIdx].LeftIdx != noIdx {
-			childIdx = t.Nodes[currentIdx].LeftIdx
+		if t.nodes[currentIdx].leftIdx != noIdx {
+			childIdx = t.nodes[currentIdx].leftIdx
 		} else {
-			childIdx = t.Nodes[currentIdx].RightIdx
+			childIdx = t.nodes[currentIdx].rightIdx
 		}
 
 		if parentIdx != noIdx {
-			t.Nodes[childIdx].ParentIdx = parentIdx
+			t.nodes[childIdx].parentIdx = parentIdx
 
-			if t.Nodes[parentIdx].LeftIdx == currentIdx {
-				t.Nodes[parentIdx].LeftIdx = childIdx
+			if t.nodes[parentIdx].leftIdx == currentIdx {
+				t.nodes[parentIdx].leftIdx = childIdx
 			} else {
-				t.Nodes[parentIdx].RightIdx = childIdx
+				t.nodes[parentIdx].rightIdx = childIdx
 			}
 		} else {
-			t.Nodes[childIdx].ParentIdx = noIdx
-			t.RootIdx = childIdx
+			t.nodes[childIdx].parentIdx = noIdx
+			t.rootIdx = childIdx
 		}
 
 		freeIdx = currentIdx
@@ -200,18 +199,18 @@ func (t *IntervalTree[K, V]) Delete(start, end K) bool {
 
 	var noVal K
 
-	t.Nodes[freeIdx] = Node[K, V]{
+	t.nodes[freeIdx] = node[K, V]{
 		Interval: Interval[K, V]{
 			Start: noVal,
 			End:   noVal,
 		},
-		MaxEnd:    noVal,
-		LeftIdx:   noIdx,
-		RightIdx:  noIdx,
-		ParentIdx: noIdx,
-		Height:    0,
+		maxEnd:    noVal,
+		leftIdx:   noIdx,
+		rightIdx:  noIdx,
+		parentIdx: noIdx,
+		height:    0,
 	}
-	t.FreeIndex = append(t.FreeIndex, freeIdx)
+	t.freeIndex = append(t.freeIndex, freeIdx)
 
 	updateIdx := parentIdx
 	for updateIdx != noIdx {
@@ -223,7 +222,7 @@ func (t *IntervalTree[K, V]) Delete(start, end K) bool {
 			updateIdx = t.rebalance(updateIdx, balance)
 		}
 
-		updateIdx = t.Nodes[updateIdx].ParentIdx
+		updateIdx = t.nodes[updateIdx].parentIdx
 	}
 
 	return true

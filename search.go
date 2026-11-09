@@ -22,15 +22,15 @@ func (t *IntervalTree[K, V]) ExactMatch(start, end K) bool {
 		Start: start,
 		End:   end,
 	}
-	currentIdx := t.RootIdx
+	currentIdx := t.rootIdx
 
 	for currentIdx != noIdx {
-		node := &t.Nodes[currentIdx]
+		node := &t.nodes[currentIdx]
 		cmp := t.cmpIntervals(target, node.Interval)
 		if cmp < 0 {
-			currentIdx = node.LeftIdx
+			currentIdx = node.leftIdx
 		} else if cmp > 0 {
-			currentIdx = node.RightIdx
+			currentIdx = node.rightIdx
 		} else {
 			return true
 		}
@@ -39,37 +39,37 @@ func (t *IntervalTree[K, V]) ExactMatch(start, end K) bool {
 	return false
 }
 
-// Covers checks if there exists any node in the tree that completely encompasses the given [start, end] range.
-// It uses an iterative stack with MaxEnd pruning for maximum performance.
+// Covers reports whether a single stored interval contains all of [start, end].
+// The union of several intervals is not considered.
 func (t *IntervalTree[K, V]) Covers(start, end K) bool {
-	if t.RootIdx == noIdx {
+	if t.rootIdx == noIdx {
 		return false
 	}
 
 	var stack [64]uint32
-	stack[0] = t.RootIdx
+	stack[0] = t.rootIdx
 	stackIdx := 1
 
 	for stackIdx > 0 {
 		stackIdx--
 		currentIdx := stack[stackIdx]
-		node := &t.Nodes[currentIdx]
+		node := &t.nodes[currentIdx]
 
-		if t.Cmp(node.MaxEnd, end) < 0 {
+		if t.cmp(node.maxEnd, end) < 0 {
 			continue
 		}
 
-		if t.Cmp(node.Start, start) <= 0 && t.Cmp(end, node.End) <= 0 {
+		if t.cmp(node.Start, start) <= 0 && t.cmp(end, node.End) <= 0 {
 			return true
 		}
 
-		if t.Cmp(node.Start, start) <= 0 && node.RightIdx != noIdx {
-			stack[stackIdx] = node.RightIdx
+		if t.cmp(node.Start, start) <= 0 && node.rightIdx != noIdx {
+			stack[stackIdx] = node.rightIdx
 			stackIdx++
 		}
 
-		if node.LeftIdx != noIdx {
-			stack[stackIdx] = node.LeftIdx
+		if node.leftIdx != noIdx {
+			stack[stackIdx] = node.leftIdx
 			stackIdx++
 		}
 	}
@@ -77,39 +77,41 @@ func (t *IntervalTree[K, V]) Covers(start, end K) bool {
 	return false
 }
 
-// Overlaps searches the tree and returns iterator over all intervals that overlap with the query range [start, end].
+// Overlaps searches the tree and returns an iterator over all intervals that overlap with the query range [start, end].
+// The tree must not be modified while the iterator is in use.
+// To modify the tree based on the results, use OverlapsSlice.
 func (t *IntervalTree[K, V]) Overlaps(start, end K) iter.Seq[Interval[K, V]] {
 	return func(yield func(Interval[K, V]) bool) {
-		if t.RootIdx == noIdx {
+		if t.rootIdx == noIdx {
 			return
 		}
 
 		var stack [64]uint32
-		stack[0] = t.RootIdx
+		stack[0] = t.rootIdx
 		stackIdx := 1
 
 		for stackIdx > 0 {
 			stackIdx--
 			currentIdx := stack[stackIdx]
-			node := &t.Nodes[currentIdx]
+			node := &t.nodes[currentIdx]
 
-			if t.Cmp(node.MaxEnd, start) < 0 {
+			if t.cmp(node.maxEnd, start) < 0 {
 				continue
 			}
 
-			if t.Cmp(node.Start, end) <= 0 && t.Cmp(start, node.End) <= 0 {
+			if t.cmp(node.Start, end) <= 0 && t.cmp(start, node.End) <= 0 {
 				if !yield(node.Interval) {
 					return
 				}
 			}
 
-			if t.Cmp(node.Start, end) <= 0 && node.RightIdx != noIdx {
-				stack[stackIdx] = node.RightIdx
+			if t.cmp(node.Start, end) <= 0 && node.rightIdx != noIdx {
+				stack[stackIdx] = node.rightIdx
 				stackIdx++
 			}
 
-			if node.LeftIdx != noIdx {
-				stack[stackIdx] = node.LeftIdx
+			if node.leftIdx != noIdx {
+				stack[stackIdx] = node.leftIdx
 				stackIdx++
 			}
 		}
@@ -117,8 +119,7 @@ func (t *IntervalTree[K, V]) Overlaps(start, end K) iter.Seq[Interval[K, V]] {
 }
 
 // OverlapsSlice returns all intervals that overlap with the query range [start, end] as a slice.
-// This is convenient when you need a concrete slice instead of an iterator, or when performing
-// tree mutations (Insert/Delete) based on search results to avoid concurrent iterator modification issues.
+// The slice is a snapshot: it is safe to modify the tree while using it.
 func (t *IntervalTree[K, V]) OverlapsSlice(start, end K) []Interval[K, V] {
 	intervals := make([]Interval[K, V], 0, 8)
 
@@ -129,40 +130,40 @@ func (t *IntervalTree[K, V]) OverlapsSlice(start, end K) []Interval[K, V] {
 	return intervals
 }
 
-// All traverses the tree in-order and returns iterator over all active intervals containing the start and end keys.
-// It uses an iterative stack to achieve zero-allocation traversal without recursion overhead.
+// All traverses the tree in-order and returns an iterator over all intervals.
+// The tree must not be modified while the iterator is in use.
+// To modify the tree based on the results, use AllSlice.
 func (t *IntervalTree[K, V]) All() iter.Seq[Interval[K, V]] {
 	return func(yield func(Interval[K, V]) bool) {
-		if t.RootIdx == noIdx {
+		if t.rootIdx == noIdx {
 			return
 		}
 
 		var stack [64]uint32
 		stackIdx := 0
-		currentIdx := t.RootIdx
+		currentIdx := t.rootIdx
 
 		for currentIdx != noIdx || stackIdx > 0 {
 			for currentIdx != noIdx {
 				stack[stackIdx] = currentIdx
 				stackIdx++
-				currentIdx = t.Nodes[currentIdx].LeftIdx
+				currentIdx = t.nodes[currentIdx].leftIdx
 			}
 
 			stackIdx--
 			currentIdx = stack[stackIdx]
 
-			if !yield(t.Nodes[currentIdx].Interval) {
+			if !yield(t.nodes[currentIdx].Interval) {
 				return
 			}
 
-			currentIdx = t.Nodes[currentIdx].RightIdx
+			currentIdx = t.nodes[currentIdx].rightIdx
 		}
 	}
 }
 
-// AllSlice returns all active intervals as an in-order slice.
-// This is convenient when you need a concrete slice instead of an iterator, or when performing
-// tree mutations (Insert/Delete) based on search results to avoid concurrent iterator modification issues.
+// AllSlice returns all intervals as an in-order slice.
+// The slice is a snapshot: it is safe to modify the tree while using it.
 func (t *IntervalTree[K, V]) AllSlice() (intervals []Interval[K, V]) {
 	capacity := t.Len()
 
@@ -177,22 +178,23 @@ func (t *IntervalTree[K, V]) AllSlice() (intervals []Interval[K, V]) {
 
 // IsEmpty returns true if the tree contains no intervals.
 func (t *IntervalTree[K, V]) IsEmpty() bool {
-	return t.RootIdx == noIdx
+	return t.rootIdx == noIdx
 }
 
-// Len returns the number of active intervals currently stored in the tree.
+// Len returns the number of intervals currently stored in the tree.
 func (t *IntervalTree[K, V]) Len() int {
-	return len(t.Nodes) - len(t.FreeIndex)
+	return len(t.nodes) - len(t.freeIndex)
 }
 
-// Stabs returns iterator over all intervals that contain the given point.
+// Stabs returns an iterator over all intervals that contain the given point.
+// The tree must not be modified while the iterator is in use.
+// To modify the tree based on the results, use StabsSlice.
 func (t *IntervalTree[K, V]) Stabs(point K) iter.Seq[Interval[K, V]] {
 	return t.Overlaps(point, point)
 }
 
 // StabsSlice returns all intervals that contain the given point as a slice.
-// This is convenient when you need a concrete slice instead of an iterator, or when performing
-// tree mutations (Insert/Delete) based on search results to avoid concurrent iterator modification issues.
+// The slice is a snapshot: it is safe to modify the tree while using it.
 func (t *IntervalTree[K, V]) StabsSlice(point K) []Interval[K, V] {
 	return t.OverlapsSlice(point, point)
 }
@@ -204,15 +206,15 @@ func (t *IntervalTree[K, V]) Get(start, end K) (value V, ok bool) {
 		Start: start,
 		End:   end,
 	}
-	currentIdx := t.RootIdx
+	currentIdx := t.rootIdx
 
 	for currentIdx != noIdx {
-		node := &t.Nodes[currentIdx]
+		node := &t.nodes[currentIdx]
 		cmp := t.cmpIntervals(target, node.Interval)
 		if cmp < 0 {
-			currentIdx = node.LeftIdx
+			currentIdx = node.leftIdx
 		} else if cmp > 0 {
-			currentIdx = node.RightIdx
+			currentIdx = node.rightIdx
 		} else {
 			return node.Value, true
 		}

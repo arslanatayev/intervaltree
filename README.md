@@ -13,12 +13,12 @@ Designed with **Data-Oriented Design (DOD)** principles, `intervaltree` eliminat
 
 ## Key Highlights
 
-- **Cache-Friendly & Pointer-Free:** Nodes are indexed via `uint32` descriptors over a flat slice (`[]Node[K, V]`), avoiding pointer fragmentation and dramatically improving CPU cache locality.
+- **Cache-Friendly & Pointer-Free:** nodes are indexed via `uint32` descriptors over a flat slice (`[]node[K, V]`), avoiding pointer fragmentation and dramatically improving CPU cache locality.
 - **Zero Heap Allocations on Hot Paths:** Query operations such as `ExactMatch` and `Covers` execute with **0 B/op and 0 allocs/op**.
 - **Slot Recycling (O(1) Free-List):** Deleted node slots are recycled via an internal free-index pool, avoiding heap reallocations during continuous insert/delete cycles.
 - **Recursion-Free Algorithms:** All traversals utilize fixed-size stack buffers (`[64]uint32`), preventing stack overflows and eliminating runtime frame allocations.
-- **Self-Balancing AVL:** Guarantees strict O(log N) search, insertion, and deletion times with dynamic subtree `MaxEnd` rebalancing.
-- **Battle-Tested:** Validated against millions of randomized fuzzing iterations and stress-tested for extreme stability.
+- **Self-Balancing AVL:** Guarantees strict O(log N) search, insertion, and deletion times with dynamic subtree `maxEnd` rebalancing.
+- **Fuzz-Tested:** Validated against millions of randomized fuzzing iterations and stress-tested for extreme stability.
 
 ---
 
@@ -178,21 +178,21 @@ if ok {
 
 ## Architecture
 
-Traditional balanced trees allocate each node independently on the heap (`*Node`), introducing pointer overhead and memory fragmentation:
+Traditional balanced trees allocate each node independently on the heap (`*node`), introducing pointer overhead and memory fragmentation:
 
 ```text
 Traditional Tree:
-Heap -> [*Node] ---> [*Node] ---> [*Node] (Cache misses, heavy GC work)
+Heap -> [*node] ---> [*node] ---> [*node] (Cache misses, heavy GC work)
 
 This Implementation:
-Memory: [ Node 0 | Node 1 | Node 2 | Node 3 | ... ] (Flat, cache-local slice)
+Memory: [ node 0 | node 1 | node 2 | node 3 | ... ] (Flat, cache-local slice)
              ^         |
              +---------+ (Referenced by 32-bit array indices)
 ```
 
 1. Flat Memory Layout: All nodes reside in a single contiguous slice.
-2. Compact 32-bit Indices: Nodes reference children and parents via `uint32` indices instead of 64-bit machine pointers, saving 50% memory on pointer fields.
-3. Internal Memory Pool: Deleted slots are placed on a LIFO free list (`FreeIndex`) and repurposed immediately on subsequent inserts.
+2. Compact 32-bit Indices: nodes reference children and parents via `uint32` indices instead of 64-bit machine pointers, saving 50% memory on pointer fields.
+3. Internal Memory Pool: Deleted slots are placed on a LIFO free list (`freeIndex`) and repurposed immediately on subsequent inserts.
 
 
 ## Important Notes

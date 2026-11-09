@@ -342,12 +342,12 @@ func FuzzIntervalTree(f *testing.F) {
 	})
 }
 
-// verifyTreeInvariants validates the tree's AVL rules, MaxEnd calculations, and parent-child pointers.
+// verifyTreeInvariants validates the tree's AVL rules, maxEnd calculations, and parent-child pointers.
 func verifyTreeInvariants(t *testing.T, tree *IntervalTree[int, struct{}]) {
 	const minInt = math.MinInt
 
-	if tree.RootIdx == noIdx {
-		activeCount := len(tree.Nodes) - len(tree.FreeIndex)
+	if tree.rootIdx == noIdx {
+		activeCount := len(tree.nodes) - len(tree.freeIndex)
 		if activeCount != 0 {
 			t.Fatalf("Root is empty but active node count is not 0: %d", activeCount)
 		}
@@ -367,35 +367,35 @@ func verifyTreeInvariants(t *testing.T, tree *IntervalTree[int, struct{}]) {
 		}
 		visited[idx] = true
 
-		node := tree.Nodes[idx]
+		node := tree.nodes[idx]
 
 		// 1. Parent verification
-		if node.ParentIdx != expectedParent {
-			t.Fatalf("Incorrect ParentIdx for node %d. Expected: %d, Actual: %d", idx, expectedParent, node.ParentIdx)
+		if node.parentIdx != expectedParent {
+			t.Fatalf("Incorrect parentIdx for node %d. Expected: %d, Actual: %d", idx, expectedParent, node.parentIdx)
 		}
 
 		// 2. BST Ordering verification
-		if node.LeftIdx != noIdx {
-			left := tree.Nodes[node.LeftIdx]
+		if node.leftIdx != noIdx {
+			left := tree.nodes[node.leftIdx]
 			if tree.cmpIntervals(left.Interval, node.Interval) >= 0 {
 				t.Fatalf("BST rule violation: Left child [%d, %d] >= Root [%d, %d]", left.Start, left.End, node.Start, node.End)
 			}
 		}
-		if node.RightIdx != noIdx {
-			right := tree.Nodes[node.RightIdx]
+		if node.rightIdx != noIdx {
+			right := tree.nodes[node.rightIdx]
 			if tree.cmpIntervals(right.Interval, node.Interval) <= 0 {
 				t.Fatalf("BST rule violation: Right child [%d, %d] <= Root [%d, %d]", right.Start, right.End, node.Start, node.End)
 			}
 		}
 
 		// Recursively validate subtrees
-		leftH, leftMax := validateNode(node.LeftIdx, idx)
-		rightH, rightMax := validateNode(node.RightIdx, idx)
+		leftH, leftMax := validateNode(node.leftIdx, idx)
+		rightH, rightMax := validateNode(node.rightIdx, idx)
 
 		// 3. AVL Height and Balance Verification
 		expectedH := 1 + max(leftH, rightH)
-		if node.Height != expectedH {
-			t.Fatalf("Node %d invalid height. Expected: %d, Got: %d", idx, expectedH, node.Height)
+		if node.height != expectedH {
+			t.Fatalf("Node %d invalid height. Expected: %d, Got: %d", idx, expectedH, node.height)
 		}
 
 		balance := int(leftH) - int(rightH)
@@ -403,26 +403,26 @@ func verifyTreeInvariants(t *testing.T, tree *IntervalTree[int, struct{}]) {
 			t.Fatalf("AVL balance factor violation! Node %d, Balance: %d", idx, balance)
 		}
 
-		// 4. MaxEnd verification
+		// 4. maxEnd verification
 		expectedMax := node.End
-		if node.LeftIdx != noIdx && leftMax > expectedMax {
+		if node.leftIdx != noIdx && leftMax > expectedMax {
 			expectedMax = leftMax
 		}
-		if node.RightIdx != noIdx && rightMax > expectedMax {
+		if node.rightIdx != noIdx && rightMax > expectedMax {
 			expectedMax = rightMax
 		}
-		if node.MaxEnd != expectedMax {
-			t.Fatalf("Node %d invalid MaxEnd. Expected: %d, Got: %d", idx, expectedMax, node.MaxEnd)
+		if node.maxEnd != expectedMax {
+			t.Fatalf("Node %d invalid maxEnd. Expected: %d, Got: %d", idx, expectedMax, node.maxEnd)
 		}
 
-		return node.Height, node.MaxEnd
+		return node.height, node.maxEnd
 	}
 
-	validateNode(tree.RootIdx, noIdx)
+	validateNode(tree.rootIdx, noIdx)
 
 	// 5. Memory Leak / Unreachable Node Check
-	activeCount := len(tree.Nodes) - len(tree.FreeIndex)
+	activeCount := len(tree.nodes) - len(tree.freeIndex)
 	if len(visited) != activeCount {
-		t.Fatalf("Active node count mismatch! Visited in tree: %d, Calculated (Nodes - FreeIndex): %d", len(visited), activeCount)
+		t.Fatalf("Active node count mismatch! Visited in tree: %d, Calculated (nodes - freeIndex): %d", len(visited), activeCount)
 	}
 }

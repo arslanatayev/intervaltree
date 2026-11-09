@@ -12,8 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package intervaltree implements a high-performance, memory-efficient,
-// pointer-free AVL interval tree backed by a flat contiguous slice.
+// Package intervaltree implements an AVL interval tree for closed intervals
+// [Start, End], generic over key and value types.
+//
+// Nodes are stored in one slice and linked by uint32 indices instead of
+// pointers. If K and V contain no pointers, the garbage collector does not
+// scan the node slice.
+//
+// An IntervalTree is not safe for concurrent use and must not be copied by
+// value; use Clone. Iterator methods require Go 1.23.
 package intervaltree
 
 import (
@@ -27,14 +34,14 @@ const noIdx uint32 = math.MaxUint32
 // defaultCapacity defines the initial capacity allocated for slices or buffers to avoid frequent allocations.
 const defaultCapacity = 16
 
-// Node represents a single interval element stored within a contiguous slice backing the tree.
-type Node[K any, V any] struct {
+// node represents a single interval element stored within a contiguous slice backing the tree.
+type node[K any, V any] struct {
 	Interval[K, V]
-	MaxEnd    K
-	LeftIdx   uint32
-	RightIdx  uint32
-	ParentIdx uint32
-	Height    uint8
+	maxEnd    K
+	leftIdx   uint32
+	rightIdx  uint32
+	parentIdx uint32
+	height    uint8
 }
 
 // CompareFunc defines a 3-way comparison logic between two keys 'a' and 'b'.
@@ -48,21 +55,21 @@ type Interval[K any, V any] struct {
 	Value V
 }
 
-// IntervalTree represents a memory-efficient, slice-backed AVL interval tree.
+// IntervalTree represents slice-backed AVL interval tree.
 type IntervalTree[K any, V any] struct {
-	Nodes     []Node[K, V]
-	FreeIndex []uint32
-	RootIdx   uint32
-	Cmp       CompareFunc[K]
+	nodes     []node[K, V]
+	freeIndex []uint32
+	rootIdx   uint32
+	cmp       CompareFunc[K]
 }
 
 // New constructs and initializes a new IntervalTree with a pre-allocated memory capacity.
 func New[K any, V any](capacity int, cmp CompareFunc[K]) *IntervalTree[K, V] {
 	return &IntervalTree[K, V]{
-		Nodes:     make([]Node[K, V], 0, capacity),
-		FreeIndex: make([]uint32, 0, capacity),
-		RootIdx:   noIdx,
-		Cmp:       cmp,
+		nodes:     make([]node[K, V], 0, capacity),
+		freeIndex: make([]uint32, 0, capacity),
+		rootIdx:   noIdx,
+		cmp:       cmp,
 	}
 }
 
@@ -75,55 +82,55 @@ func NewOrdered[K cmp.Ordered, V any](capacity int) *IntervalTree[K, V] {
 
 // Reset clears all active nodes and free indices while retaining the underlying slice allocations.
 func (t *IntervalTree[K, V]) Reset() {
-	clear(t.Nodes)
-	t.Nodes = t.Nodes[:0]
-	t.FreeIndex = t.FreeIndex[:0]
-	t.RootIdx = noIdx
+	clear(t.nodes)
+	t.nodes = t.nodes[:0]
+	t.freeIndex = t.freeIndex[:0]
+	t.rootIdx = noIdx
 }
 
 // cmpIntervals compares two intervals 'a' and 'b'.
 func (t *IntervalTree[K, V]) cmpIntervals(a, b Interval[K, V]) int {
-	if cmp := t.Cmp(a.Start, b.Start); cmp != 0 {
+	if cmp := t.cmp(a.Start, b.Start); cmp != 0 {
 		return cmp
 	}
-	return t.Cmp(a.End, b.End)
+	return t.cmp(a.End, b.End)
 }
 
 // maxKey compares two keys 'a' and 'b' and returns the greater key based on the configured comparison function.
 func (t *IntervalTree[K, V]) maxKey(a, b K) K {
-	if t.Cmp(a, b) >= 0 {
+	if t.cmp(a, b) >= 0 {
 		return a
 	}
 	return b
 }
 
-// updateNodeStats recalculates and updates the Height and MaxEnd values for the node at idx.
+// updateNodeStats recalculates and updates the height and maxEnd values for the node at idx.
 func (t *IntervalTree[K, V]) updateNodeStats(idx uint32) {
 	if idx == noIdx {
 		return
 	}
 
-	leftIdx := t.Nodes[idx].LeftIdx
-	rightIdx := t.Nodes[idx].RightIdx
+	leftIdx := t.nodes[idx].leftIdx
+	rightIdx := t.nodes[idx].rightIdx
 
 	var leftH, rightH uint8
-	currMax := t.Nodes[idx].End
+	currMax := t.nodes[idx].End
 
 	if leftIdx != noIdx {
-		leftH = t.Nodes[leftIdx].Height
-		currMax = t.maxKey(currMax, t.Nodes[leftIdx].MaxEnd)
+		leftH = t.nodes[leftIdx].height
+		currMax = t.maxKey(currMax, t.nodes[leftIdx].maxEnd)
 	}
 	if rightIdx != noIdx {
-		rightH = t.Nodes[rightIdx].Height
-		currMax = t.maxKey(currMax, t.Nodes[rightIdx].MaxEnd)
+		rightH = t.nodes[rightIdx].height
+		currMax = t.maxKey(currMax, t.nodes[rightIdx].maxEnd)
 	}
 
 	if leftH > rightH {
-		t.Nodes[idx].Height = 1 + leftH
+		t.nodes[idx].height = 1 + leftH
 	} else {
-		t.Nodes[idx].Height = 1 + rightH
+		t.nodes[idx].height = 1 + rightH
 	}
-	t.Nodes[idx].MaxEnd = currMax
+	t.nodes[idx].maxEnd = currMax
 }
 
 // getBalance calculates and returns the AVL balance factor (LeftHeight - RightHeight) of the node at idx.
@@ -133,11 +140,11 @@ func (t *IntervalTree[K, V]) getBalance(idx uint32) int {
 	}
 
 	var leftH, rightH int
-	if t.Nodes[idx].LeftIdx != noIdx {
-		leftH = int(t.Nodes[t.Nodes[idx].LeftIdx].Height)
+	if t.nodes[idx].leftIdx != noIdx {
+		leftH = int(t.nodes[t.nodes[idx].leftIdx].height)
 	}
-	if t.Nodes[idx].RightIdx != noIdx {
-		rightH = int(t.Nodes[t.Nodes[idx].RightIdx].Height)
+	if t.nodes[idx].rightIdx != noIdx {
+		rightH = int(t.nodes[t.nodes[idx].rightIdx].height)
 	}
 
 	return leftH - rightH
@@ -145,26 +152,26 @@ func (t *IntervalTree[K, V]) getBalance(idx uint32) int {
 
 // rotateLeft performs a standard AVL left rotation on the subtree rooted at xIdx.
 func (t *IntervalTree[K, V]) rotateLeft(xIdx uint32) uint32 {
-	yIdx := t.Nodes[xIdx].RightIdx
+	yIdx := t.nodes[xIdx].rightIdx
 
-	t.Nodes[xIdx].RightIdx = t.Nodes[yIdx].LeftIdx
-	if t.Nodes[yIdx].LeftIdx != noIdx {
-		t.Nodes[t.Nodes[yIdx].LeftIdx].ParentIdx = xIdx
+	t.nodes[xIdx].rightIdx = t.nodes[yIdx].leftIdx
+	if t.nodes[yIdx].leftIdx != noIdx {
+		t.nodes[t.nodes[yIdx].leftIdx].parentIdx = xIdx
 	}
 
-	parentIdx := t.Nodes[xIdx].ParentIdx
-	t.Nodes[yIdx].ParentIdx = parentIdx
+	parentIdx := t.nodes[xIdx].parentIdx
+	t.nodes[yIdx].parentIdx = parentIdx
 
 	if parentIdx == noIdx {
-		t.RootIdx = yIdx
-	} else if t.Nodes[parentIdx].LeftIdx == xIdx {
-		t.Nodes[parentIdx].LeftIdx = yIdx
+		t.rootIdx = yIdx
+	} else if t.nodes[parentIdx].leftIdx == xIdx {
+		t.nodes[parentIdx].leftIdx = yIdx
 	} else {
-		t.Nodes[parentIdx].RightIdx = yIdx
+		t.nodes[parentIdx].rightIdx = yIdx
 	}
 
-	t.Nodes[yIdx].LeftIdx = xIdx
-	t.Nodes[xIdx].ParentIdx = yIdx
+	t.nodes[yIdx].leftIdx = xIdx
+	t.nodes[xIdx].parentIdx = yIdx
 
 	t.updateNodeStats(xIdx)
 	t.updateNodeStats(yIdx)
@@ -174,26 +181,26 @@ func (t *IntervalTree[K, V]) rotateLeft(xIdx uint32) uint32 {
 
 // rotateRight performs a standard AVL right rotation on the subtree rooted at yIdx.
 func (t *IntervalTree[K, V]) rotateRight(yIdx uint32) uint32 {
-	xIdx := t.Nodes[yIdx].LeftIdx
+	xIdx := t.nodes[yIdx].leftIdx
 
-	t.Nodes[yIdx].LeftIdx = t.Nodes[xIdx].RightIdx
-	if t.Nodes[xIdx].RightIdx != noIdx {
-		t.Nodes[t.Nodes[xIdx].RightIdx].ParentIdx = yIdx
+	t.nodes[yIdx].leftIdx = t.nodes[xIdx].rightIdx
+	if t.nodes[xIdx].rightIdx != noIdx {
+		t.nodes[t.nodes[xIdx].rightIdx].parentIdx = yIdx
 	}
 
-	parentIdx := t.Nodes[yIdx].ParentIdx
-	t.Nodes[xIdx].ParentIdx = parentIdx
+	parentIdx := t.nodes[yIdx].parentIdx
+	t.nodes[xIdx].parentIdx = parentIdx
 
 	if parentIdx == noIdx {
-		t.RootIdx = xIdx
-	} else if t.Nodes[parentIdx].LeftIdx == yIdx {
-		t.Nodes[parentIdx].LeftIdx = xIdx
+		t.rootIdx = xIdx
+	} else if t.nodes[parentIdx].leftIdx == yIdx {
+		t.nodes[parentIdx].leftIdx = xIdx
 	} else {
-		t.Nodes[parentIdx].RightIdx = xIdx
+		t.nodes[parentIdx].rightIdx = xIdx
 	}
 
-	t.Nodes[xIdx].RightIdx = yIdx
-	t.Nodes[yIdx].ParentIdx = xIdx
+	t.nodes[xIdx].rightIdx = yIdx
+	t.nodes[yIdx].parentIdx = xIdx
 
 	t.updateNodeStats(yIdx)
 	t.updateNodeStats(xIdx)
@@ -204,7 +211,7 @@ func (t *IntervalTree[K, V]) rotateRight(yIdx uint32) uint32 {
 // rebalance checks the balance factor of xIdx and executes necessary single or double rotations.
 func (t *IntervalTree[K, V]) rebalance(xIdx uint32, balance int) uint32 {
 	if balance > 1 {
-		leftIdx := t.Nodes[xIdx].LeftIdx
+		leftIdx := t.nodes[xIdx].leftIdx
 		if t.getBalance(leftIdx) < 0 {
 			t.rotateLeft(leftIdx)
 		}
@@ -212,7 +219,7 @@ func (t *IntervalTree[K, V]) rebalance(xIdx uint32, balance int) uint32 {
 	}
 
 	if balance < -1 {
-		rightIdx := t.Nodes[xIdx].RightIdx
+		rightIdx := t.nodes[xIdx].rightIdx
 		if t.getBalance(rightIdx) > 0 {
 			t.rotateRight(rightIdx)
 		}
@@ -221,19 +228,19 @@ func (t *IntervalTree[K, V]) rebalance(xIdx uint32, balance int) uint32 {
 	return xIdx
 }
 
-// Clone creates a fast, deep copy of the IntervalTree, duplicating the underlying
-// node and free-index slices while preserving the structural state and function pointers.
+// Clone returns an independent copy of the tree. Intervals are copied by
+// assignment, so if K or V contain pointers, the data they point to is shared.
 func (t *IntervalTree[K, V]) Clone() *IntervalTree[K, V] {
-	nodes := make([]Node[K, V], len(t.Nodes), cap(t.Nodes))
-	copy(nodes, t.Nodes)
+	nodes := make([]node[K, V], len(t.nodes), cap(t.nodes))
+	copy(nodes, t.nodes)
 
-	freeIndex := make([]uint32, len(t.FreeIndex), cap(t.FreeIndex))
-	copy(freeIndex, t.FreeIndex)
+	freeIdx := make([]uint32, len(t.freeIndex), cap(t.freeIndex))
+	copy(freeIdx, t.freeIndex)
 
 	return &IntervalTree[K, V]{
-		Nodes:     nodes,
-		FreeIndex: freeIndex,
-		RootIdx:   t.RootIdx,
-		Cmp:       t.Cmp,
+		nodes:     nodes,
+		freeIndex: freeIdx,
+		rootIdx:   t.rootIdx,
+		cmp:       t.cmp,
 	}
 }
