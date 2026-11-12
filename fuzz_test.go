@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"math"
+	"slices"
 	"sort"
 	"testing"
 )
@@ -67,6 +68,16 @@ func (m *referenceModel) Overlaps(start, end int) [][2]int {
 	var res [][2]int
 	for _, it := range m.intervals {
 		if it[0] <= end && start <= it[1] {
+			res = append(res, it)
+		}
+	}
+	return res
+}
+
+func (m *referenceModel) stabs(point int) [][2]int {
+	var res [][2]int
+	for _, it := range m.intervals {
+		if it[0] <= point && point <= it[1] {
 			res = append(res, it)
 		}
 	}
@@ -169,7 +180,78 @@ func (m *referenceModel) computeSplit(start, end int) (toDelete, toAdd [][2]int,
 	return toDelete, toAdd, isIntersect
 }
 
+// pairsOf converts intervals to [start, end] pairs and drops the values.
+func pairsOf[V any](intervals []Interval[int, V]) [][2]int {
+	res := make([][2]int, len(intervals))
+	for i, it := range intervals {
+		res[i] = [2]int{it.Start, it.End}
+	}
+	return res
+}
+
+func sortedPairs(pairs [][2]int) [][2]int {
+	res := make([][2]int, len(pairs))
+	copy(res, pairs)
+	sort.Slice(res, func(i, j int) bool {
+		if res[i][0] != res[j][0] {
+			return res[i][0] < res[j][0]
+		}
+		return res[i][1] < res[j][1]
+	})
+	return res
+}
+
+// samePairs fails the test unless got and want hold the same intervals.
+// The order is ignored; duplicates must match in number.
+func samePairs(t *testing.T, what string, got, want [][2]int) {
+	t.Helper()
+	samePairsInOrder(t, what, sortedPairs(got), sortedPairs(want))
+}
+
+// samePairsInOrder fails the test unless got and want are identical, including order.
+func samePairsInOrder(t *testing.T, what string, got, want [][2]int) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("%s: count mismatch: Tree=%d, Reference=%d", what, len(got), len(want))
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			t.Fatalf("%s: element mismatch at %d: Tree=%v, Reference=%v", what, i, got[i], want[i])
+		}
+	}
+}
+
+// verifyAgainstModel checks that the whole content of the tree equals the reference model.
+func verifyAgainstModel(t *testing.T, tree *IntervalTree[int, struct{}], ref *referenceModel) {
+	t.Helper()
+	want := ref.all()
+
+	samePairsInOrder(t, "AllSlice", pairsOf(tree.AllSlice()), want)
+	samePairsInOrder(t, "All", pairsOf(slices.Collect(tree.All())), want)
+
+	if tree.Len() != len(want) {
+		t.Fatalf("Len() mismatch: Tree=%d, Reference=%d", tree.Len(), len(want))
+	}
+	if tree.IsEmpty() != (len(want) == 0) {
+		t.Fatalf("IsEmpty() mismatch: Tree=%v, Reference count=%d", tree.IsEmpty(), len(want))
+	}
+}
+
+// fuzzOp encodes one operation in the format the fuzz target reads:
+// one op byte followed by two little-endian int16 values.
+func fuzzOp(op byte, start, end int16) []byte {
+	b := make([]byte, 5)
+	b[0] = op
+	binary.LittleEndian.PutUint16(b[1:], uint16(start))
+	binary.LittleEndian.PutUint16(b[3:], uint16(end))
+	return b
+}
+
 // FuzzIntervalTree tests memory integrity and algorithmic correctness of the library.
+//
+// Operation codes (op % 12): 0 Insert, 1 Delete, 2 ExactMatch, 3 Covers,
+// 4 Overlaps, 5 Stabs, 6 ComputeMerge, 7 ComputeContiguousMerge, 8 MergeAll,
+// 9 ComputeSplit, 10 Get, 11 Clone. An op byte of 250 or more resets the tree.
 func FuzzIntervalTree(f *testing.F) {
 	cmp := func(a, b int) int {
 		if a < b {
@@ -183,20 +265,28 @@ func FuzzIntervalTree(f *testing.F) {
 	prev := func(a int) int { return a - 1 }
 	next := func(a int) int { return a + 1 }
 
-	// Seed Corpus: Scenarios to trigger rotations and edge cases
-	f.Add([]byte{
-		0, 10, 20, // Insert [10, 20]
-		0, 5, 15, // Insert [5, 15]
-		0, 25, 30, // Insert [25, 30]
-		1, 5, 15, // Delete [5, 15]
-		0, 10, 20, // Duplicate Insert [10, 20]
-		2, 10, 20, // ExactMatch
-		3, 12, 18, // Covers
-		4, 15, 25, // Overlaps
-	})
+	// Seed corpus: scenarios that trigger rotations, duplicates and every operation.
+	f.Add(bytes.Join([][]byte{
+		fuzzOp(0, 10, 20), // Insert [10, 20]
+		fuzzOp(0, 5, 15),  // Insert [5, 15]
+		fuzzOp(0, 25, 30), // Insert [25, 30]
+		fuzzOp(1, 5, 15),  // Delete [5, 15]
+		fuzzOp(0, 10, 20), // Duplicate Insert [10, 20]
+		fuzzOp(2, 10, 20), // ExactMatch
+		fuzzOp(3, 12, 18), // Covers
+		fuzzOp(4, 15, 25), // Overlaps
+		fuzzOp(5, 12, 12), // Stabs
+		fuzzOp(6, 12, 28), // ComputeMerge
+		fuzzOp(7, 21, 24), // ComputeContiguousMerge
+		fuzzOp(9, 12, 18), // ComputeSplit
+		fuzzOp(10, 10, 20), // Get
+		fuzzOp(11, 1, 2),  // Clone
+		fuzzOp(8, 0, 0),   // MergeAll
+		fuzzOp(250, 0, 0), // Reset
+	}, nil))
 
 	f.Fuzz(func(t *testing.T, data []byte) {
-		if len(data) < 3 {
+		if len(data) < 5 {
 			return
 		}
 
@@ -221,128 +311,117 @@ func FuzzIntervalTree(f *testing.F) {
 				s, e = e, s
 			}
 
-			switch op % 10 {
-			case 0: // INSERT
-				_ = tree.Insert(s, e, struct{}{})
-				ref.insert(s, e)
-
-			case 1: // DELETE
-				_ = tree.Delete(s, e)
-				ref.delete(s, e)
-
-			case 2: // EXACT MATCH
-				treeRes := tree.ExactMatch(s, e)
-				refRes := ref.exactMatch(s, e)
-				if treeRes != refRes {
-					t.Fatalf("ExactMatch(%d, %d) mismatch: Tree=%v, Reference=%v", s, e, treeRes, refRes)
-				}
-
-			case 3: // COVERS
-				treeRes := tree.Covers(s, e)
-				refRes := ref.covers(s, e)
-				if treeRes != refRes {
-					t.Fatalf("Covers(%d, %d) mismatch: Tree=%v, Reference=%v", s, e, treeRes, refRes)
-				}
-
-			case 4: // FIND OVERLAPS
-				overlaps := tree.OverlapsSlice(s, e)
-				refOverlaps := ref.Overlaps(s, e)
-
-				if len(overlaps) != len(refOverlaps) {
-					t.Fatalf("Overlaps(%d, %d) size error: Tree=%d, Reference=%d", s, e, len(overlaps), len(refOverlaps))
-				}
-
-				// Sort overlapping intervals and verify
-				treeIntervals := make([][2]int, len(overlaps))
-				for i := range overlaps {
-					treeIntervals[i] = [2]int{overlaps[i].Start, overlaps[i].End}
-				}
-				sort.Slice(treeIntervals, func(i, j int) bool {
-					if treeIntervals[i][0] != treeIntervals[j][0] {
-						return treeIntervals[i][0] < treeIntervals[j][0]
+			if op >= 250 { // RESET
+				tree.Reset()
+				ref.intervals = nil
+			} else {
+				switch op % 12 {
+				case 0: // INSERT
+					existed := ref.exactMatch(s, e)
+					inserted := tree.Insert(s, e, struct{}{})
+					if inserted == existed {
+						t.Fatalf("Insert(%d, %d) returned %v, but the interval already existed: %v", s, e, inserted, existed)
 					}
-					return treeIntervals[i][1] < treeIntervals[j][1]
-				})
-				sort.Slice(refOverlaps, func(i, j int) bool {
-					if refOverlaps[i][0] != refOverlaps[j][0] {
-						return refOverlaps[i][0] < refOverlaps[j][0]
+					ref.insert(s, e)
+
+				case 1: // DELETE
+					existed := ref.exactMatch(s, e)
+					deleted := tree.Delete(s, e)
+					if deleted != existed {
+						t.Fatalf("Delete(%d, %d) returned %v, but the interval existed: %v", s, e, deleted, existed)
 					}
-					return refOverlaps[i][1] < refOverlaps[j][1]
-				})
+					ref.delete(s, e)
 
-				for i := range treeIntervals {
-					if treeIntervals[i] != refOverlaps[i] {
-						t.Fatalf("Overlaps element mismatch: Tree=%v, Reference=%v", treeIntervals[i], refOverlaps[i])
+				case 2: // EXACT MATCH
+					treeRes := tree.ExactMatch(s, e)
+					refRes := ref.exactMatch(s, e)
+					if treeRes != refRes {
+						t.Fatalf("ExactMatch(%d, %d) mismatch: Tree=%v, Reference=%v", s, e, treeRes, refRes)
 					}
-				}
 
-			case 5: // AllSlice
-				overlaps := tree.AllSlice()
-				refAll := ref.all()
-
-				if len(overlaps) != len(refAll) {
-					t.Fatalf("AllSlice() element count mismatch: Tree=%d, Reference=%d", len(overlaps), len(refAll))
-				}
-				for i := range overlaps {
-					if overlaps[i].Start != refAll[i][0] || overlaps[i].End != refAll[i][1] {
-						t.Fatalf("AllSlice() sorting/content mismatch at %d: Tree=[%d,%d], Reference=%v", i, overlaps[i].Start, overlaps[i].End, refAll[i])
+				case 3: // COVERS
+					treeRes := tree.Covers(s, e)
+					refRes := ref.covers(s, e)
+					if treeRes != refRes {
+						t.Fatalf("Covers(%d, %d) mismatch: Tree=%v, Reference=%v", s, e, treeRes, refRes)
 					}
-				}
 
-			case 6: // COMPUTE MERGE
-				treeDel, treeMerged, treeIntersect := tree.ComputeMerge(s, e, struct{}{})
-				refDel, refMerged, refIntersect := ref.computeMerge(s, e)
+				case 4: // OVERLAPS (slice and iterator forms)
+					want := ref.Overlaps(s, e)
+					samePairs(t, "OverlapsSlice", pairsOf(tree.OverlapsSlice(s, e)), want)
+					samePairs(t, "Overlaps", pairsOf(slices.Collect(tree.Overlaps(s, e))), want)
 
-				if treeIntersect != refIntersect {
-					t.Fatalf("ComputeMerge intersect mismatch at (%d, %d): Tree=%v, Ref=%v", s, e, treeIntersect, refIntersect)
-				}
-				if treeMerged.Start != refMerged[0] || treeMerged.End != refMerged[1] {
-					t.Fatalf("ComputeMerge merged range mismatch at (%d, %d): Tree=[%d,%d], Ref=%v", s, e, treeMerged.Start, treeMerged.End, refMerged)
-				}
-				if len(treeDel) != len(refDel) {
-					t.Fatalf("ComputeMerge toDelete count mismatch: Tree=%d, Ref=%d", len(treeDel), len(refDel))
-				}
+				case 5: // STABS (slice and iterator forms)
+					want := ref.stabs(s)
+					samePairs(t, "StabsSlice", pairsOf(tree.StabsSlice(s)), want)
+					samePairs(t, "Stabs", pairsOf(slices.Collect(tree.Stabs(s))), want)
 
-			case 7: // COMPUTE CONTIGUOUS MERGE
-				treeDel, treeMerged, treeIntersect := tree.ComputeContiguousMerge(s, e, struct{}{}, prev, next)
-				refDel, refMerged, refIntersect := ref.computeContiguousMerge(s, e)
+				case 6: // COMPUTE MERGE
+					treeDel, treeMerged, treeIntersect := tree.ComputeMerge(s, e, struct{}{})
+					refDel, refMerged, refIntersect := ref.computeMerge(s, e)
 
-				if treeIntersect != refIntersect {
-					t.Fatalf("ComputeMerge intersect mismatch at (%d, %d): Tree=%v, Ref=%v", s, e, treeIntersect, refIntersect)
-				}
-				if treeMerged.Start != refMerged[0] || treeMerged.End != refMerged[1] {
-					t.Fatalf("ComputeMerge merged range mismatch at (%d, %d): Tree=[%d,%d], Ref=%v", s, e, treeMerged.Start, treeMerged.End, refMerged)
-				}
-				if len(treeDel) != len(refDel) {
-					t.Fatalf("ComputeMerge toDelete count mismatch: Tree=%d, Ref=%d", len(treeDel), len(refDel))
-				}
+					if treeIntersect != refIntersect {
+						t.Fatalf("ComputeMerge intersect mismatch at (%d, %d): Tree=%v, Ref=%v", s, e, treeIntersect, refIntersect)
+					}
+					if treeMerged.Start != refMerged[0] || treeMerged.End != refMerged[1] {
+						t.Fatalf("ComputeMerge merged range mismatch at (%d, %d): Tree=[%d,%d], Ref=%v", s, e, treeMerged.Start, treeMerged.End, refMerged)
+					}
+					samePairs(t, "ComputeMerge toDelete", pairsOf(treeDel), refDel)
 
-			case 8: // MERGE ALL
-				tree.MergeAll(next)
-				ref.mergeAll()
+				case 7: // COMPUTE CONTIGUOUS MERGE
+					treeDel, treeMerged, treeIntersect := tree.ComputeContiguousMerge(s, e, struct{}{}, prev, next)
+					refDel, refMerged, refIntersect := ref.computeContiguousMerge(s, e)
 
-			case 9: // COMPUTE SPLIT
-				treeDel, treeAdd, treeIntersect := tree.ComputeSplit(s, e, prev, next)
-				refDel, refAdd, refIntersect := ref.computeSplit(s, e)
+					if treeIntersect != refIntersect {
+						t.Fatalf("ComputeContiguousMerge intersect mismatch at (%d, %d): Tree=%v, Ref=%v", s, e, treeIntersect, refIntersect)
+					}
+					if treeMerged.Start != refMerged[0] || treeMerged.End != refMerged[1] {
+						t.Fatalf("ComputeContiguousMerge merged range mismatch at (%d, %d): Tree=[%d,%d], Ref=%v", s, e, treeMerged.Start, treeMerged.End, refMerged)
+					}
+					samePairs(t, "ComputeContiguousMerge toDelete", pairsOf(treeDel), refDel)
 
-				if treeIntersect != refIntersect {
-					t.Fatalf("ComputeSplit intersect mismatch at (%d, %d): Tree=%v, Ref=%v", s, e, treeIntersect, refIntersect)
-				}
-				if len(treeDel) != len(refDel) {
-					t.Fatalf("ComputeSplit toDelete count mismatch: Tree=%d, Ref=%d", len(treeDel), len(refDel))
-				}
-				if len(treeAdd) != len(refAdd) {
-					t.Fatalf("ComputeSplit toAdd count mismatch: Tree=%d, Ref=%d", len(treeAdd), len(refAdd))
+				case 8: // MERGE ALL
+					tree.MergeAll(next)
+					ref.mergeAll()
+
+				case 9: // COMPUTE SPLIT
+					treeDel, treeAdd, treeIntersect := tree.ComputeSplit(s, e, prev, next)
+					refDel, refAdd, refIntersect := ref.computeSplit(s, e)
+
+					if treeIntersect != refIntersect {
+						t.Fatalf("ComputeSplit intersect mismatch at (%d, %d): Tree=%v, Ref=%v", s, e, treeIntersect, refIntersect)
+					}
+					samePairs(t, "ComputeSplit toDelete", pairsOf(treeDel), refDel)
+					samePairs(t, "ComputeSplit toAdd", pairsOf(treeAdd), refAdd)
+
+				case 10: // GET
+					_, ok := tree.Get(s, e)
+					refOk := ref.exactMatch(s, e)
+					if ok != refOk {
+						t.Fatalf("Get(%d, %d) mismatch: Tree=%v, Reference=%v", s, e, ok, refOk)
+					}
+
+				case 11: // CLONE
+					clone := tree.Clone()
+					verifyTreeInvariants(t, clone)
+					samePairsInOrder(t, "Clone", pairsOf(clone.AllSlice()), ref.all())
+
+					// Changing the clone must not affect the original. The check
+					// of the original against the model below catches shared state.
+					clone.Reset()
+					_ = clone.Insert(s, e, struct{}{})
+					verifyTreeInvariants(t, clone)
 				}
 			}
 
-			// CHECK ALL TREE INVARIANTS AFTER EVERY OPERATION
+			// CHECK ALL TREE INVARIANTS AND THE FULL CONTENT AFTER EVERY OPERATION
 			verifyTreeInvariants(t, tree)
+			verifyAgainstModel(t, tree, ref)
 		}
 	})
 }
 
-// verifyTreeInvariants validates the tree's AVL rules, maxEnd calculations, and parent-child pointers.
+// verifyTreeInvariants validates the tree's AVL rules, maxEnd calculations, and parent-child indices.
 func verifyTreeInvariants(t *testing.T, tree *IntervalTree[int, struct{}]) {
 	const minInt = math.MinInt
 

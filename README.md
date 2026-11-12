@@ -22,42 +22,55 @@ The goal is a small allocation footprint and a quiet garbage collector. See [Des
 - **No recursion:** traversals use fixed-size stack buffers (`[64]uint32`) rather than recursive calls.
 - **Self-balancing AVL:** insert, delete and exact lookup are O(log N). Each node keeps the maximum `End` of its subtree, which lets overlap queries skip whole subtrees.
 - **Generic:** works with any key type via `NewOrdered` (ordered types) or `New` with your own comparison function.
-- **Fuzz and stress tested:** fuzz tests check tree balance, index recycling and overlap invariants (sample output below). Stress-tested with N million intervals.
+- **Fuzz- and stress-tested:** a fuzz test compares the tree with a brute-force model after every operation and checks the AVL, `maxEnd` and index-recycling invariants (sample output below). A separate test builds a tree of 1,000,000 intervals.
 
 ---
 
 ## Benchmarks
 
-Absolute numbers for this library only. No comparison with other interval tree implementations was made.
+Absolute numbers for this library only. Run the benchmarks with:
+```bash
+go test -run='^$' -bench=. -benchmem
+```
 
 Tested on **AMD Ryzen 7 7730U** (Linux amd64, Go 1.24):
 
-| Benchmark | Time per Operation (ns/op) | Memory Usage (B/op) | Allocations (allocs/op) |
-| :--- | :--- | :--- | :--- |
-| **`BenchmarkInsert`** | 817.7 ns | 0 B | 0 |
-| **`BenchmarkExactMatch`** | 314.1 ns | 0 B | 0 |
-| **`BenchmarkCovers`** | 334.1 ns | 0 B | 0 |
-| **`BenchmarkOverlaps`** | 1221 ns | 0 B | 0 |
-| **`BenchmarkOverlapsSlice`** | 1771 ns | 1185 B | 2 |
-| **`BenchmarkGet`** | 146.3 ns | 0 B | 0 |
-| **`BenchmarkComputeMerge`** | 594.1 ns | 405 B | 1 |
-| **`BenchmarkComputeContiguousMerge`** | 604.4 ns | 408 B | 1 |
-| **`BenchmarkMergeAll`** | 291264 ns | 491525 B | 2 |
-| **`BenchmarkComputeSplit`** | 1358 ns | 1776 B | 2 |
-| **`BenchmarkDelete`** | 369.9 ns | 0 B | 0 |
+| Benchmark | Tree Size | Time per Operation (ns/op) | Allocated (B/op) | Allocations (allocs/op) |
+| :--- | :--- | :--- | :--- | :--- |
+| **`BenchmarkInsert`** | 0 → 100,000 | 817.7 ns | 0 B | 0 |
+| **`BenchmarkExactMatch`** | 100,000 | 314.1 ns | 0 B | 0 |
+| **`BenchmarkCovers`** | 100,000 | 334.1 ns | 0 B | 0 |
+| **`BenchmarkOverlaps`** | 100,000 | 1,221 ns | 0 B | 0 |
+| **`BenchmarkOverlapsSlice`** | 100,000 | 1,771 ns | 1,185 B | 2 |
+| **`BenchmarkGet`** | 100,000 | 146.3 ns | 0 B | 0 |
+| **`BenchmarkComputeMerge`** | 100,000 | 594.1 ns | 405 B | 1 |
+| **`BenchmarkComputeContiguousMerge`** | 100,000 | 604.4 ns | 408 B | 1 |
+| **`BenchmarkMergeAll`** | 10,000 | 291,264 ns | 491,525 B | 2 |
+| **`BenchmarkComputeSplit`** | 100,000 | 1,358 ns | 1,776 B | 2 |
+| **`BenchmarkDelete`** | 100,000 → 0 | 369.9 ns | 0 B | 0 |
 
 ### Garbage Collector & Memory Footprint
 
-| Benchmark | Pause Duration | Heap Allocation |
-| :--- | :--- | :--- |
-| **`BenchmarkGCPause`** (1M nodes) | 230.9 µs/GC | 49.85 MB |
+| Benchmark | Tree Length | Forced GC Cycle | Heap Allocation |
+| :--- | :--- | :--- | :--- |
+| **`BenchmarkGCPause`** | 1,000,000 | 230.9 µs/GC | 49.85 MiB |
+
+All benchmarks use `int` keys and `struct{}` values, and the trees are pre-sized (capacity equals the tree size). `Insert` grows the tree from 0 to 100,000 intervals and `Delete` shrinks it back; `MergeAll` builds a new 10,000-interval tree for every iteration outside the timer. `Overlaps` and `OverlapsSlice` return about 20 intervals per query.
 
 ![Image](assets/benchmark_output.png)
 
 ## Fuzz Testing
 
-Sample output of the fuzz tests that check tree balance, index recycling and overlap invariants:
+The fuzz test applies random sequences of operations to the tree and to a brute-force reference model. After every operation it checks that the tree content matches the model and that the AVL, `maxEnd` and index-recycling invariants hold. Run it with:
+
+```bash
+go test -fuzz=FuzzIntervalTree -fuzztime=60s
+```
+
+Sample output of a 60-second run (about 1.6 million executions):
 ![Image](assets/fuzz_output.png)
+
+`TestLargeTree` additionally builds a tree of 1,000,000 intervals, deletes half of them and checks the invariants and 200 overlap queries against a brute-force scan.
 
 ## Installation
 
