@@ -35,20 +35,43 @@ func defaultTree(capacity int) *IntervalTree[int, struct{}] {
 	return New[int, struct{}](capacity, cmp)
 }
 
-func BenchmarkInsert(b *testing.B) {
+// benchSize is the tree size used by the lookup, insert and delete benchmarks.
+const benchSize = 100_000
+
+// genIntervals returns n unique random intervals with starts in [0, 1_000_000)
+// and lengths in [0, maxLen). The seed is fixed so every benchmark that uses it
+// sees the same data.
+func genIntervals(n, maxLen int) [][2]int {
 	rng := rand.New(rand.NewSource(42))
-	intervals := make([][2]int, b.N)
-	for i := 0; i < b.N; i++ {
+	seen := make(map[[2]int]struct{}, n)
+	intervals := make([][2]int, 0, n)
+	for len(intervals) < n {
 		s := rng.Intn(1_000_000)
-		intervals[i] = [2]int{s, s + rng.Intn(100)}
+		iv := [2]int{s, s + rng.Intn(maxLen)}
+		if _, ok := seen[iv]; ok {
+			continue
+		}
+		seen[iv] = struct{}{}
+		intervals = append(intervals, iv)
 	}
+	return intervals
+}
+
+func BenchmarkInsert(b *testing.B) {
+	intervals := genIntervals(benchSize, 100)
+	tree := defaultTree(benchSize)
 
 	b.ResetTimer()
 	b.ReportAllocs()
 
-	tree := defaultTree(b.N)
 	for i := 0; i < b.N; i++ {
-		_ = tree.Insert(intervals[i][0], intervals[i][1], struct{}{})
+		idx := i % benchSize
+		if i > 0 && idx == 0 {
+			b.StopTimer()
+			tree.Reset()
+			b.StartTimer()
+		}
+		_ = tree.Insert(intervals[idx][0], intervals[idx][1], struct{}{})
 	}
 }
 
@@ -136,23 +159,18 @@ func BenchmarkOverlapsSlice(b *testing.B) {
 }
 
 func BenchmarkGet(b *testing.B) {
-	rng := rand.New(rand.NewSource(42))
-	intervals := make([][2]int, b.N)
-	for i := 0; i < b.N; i++ {
-		s := rng.Intn(1_000_000)
-		intervals[i] = [2]int{s, s + rng.Intn(100)}
-	}
-
-	tree := defaultTree(b.N)
-	for i := 0; i < b.N; i++ {
-		_ = tree.Insert(intervals[i][0], intervals[i][1], struct{}{})
+	intervals := genIntervals(benchSize, 100)
+	tree := defaultTree(benchSize)
+	for _, iv := range intervals {
+		_ = tree.Insert(iv[0], iv[1], struct{}{})
 	}
 
 	b.ResetTimer()
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		_, _ = tree.Get(intervals[i][0], intervals[i][1])
+		iv := intervals[i%benchSize]
+		_, _ = tree.Get(iv[0], iv[1])
 	}
 }
 
@@ -199,18 +217,20 @@ func BenchmarkComputeContiguousMerge(b *testing.B) {
 func BenchmarkMergeAll(b *testing.B) {
 	const size = 10_000
 	rng := rand.New(rand.NewSource(42))
+	next := func(a int) int { return a + 1 }
 
-	b.ResetTimer()
 	b.ReportAllocs()
+	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
+		b.StopTimer()
 		tree := defaultTree(size)
 		for j := 0; j < size; j++ {
 			s := rng.Intn(50_000)
 			_ = tree.Insert(s, s+rng.Intn(100), struct{}{})
 		}
+		b.StartTimer()
 
-		next := func(a int) int { return a + 1 }
 		tree.MergeAll(next)
 	}
 }
@@ -237,23 +257,27 @@ func BenchmarkComputeSplit(b *testing.B) {
 }
 
 func BenchmarkDelete(b *testing.B) {
-	rng := rand.New(rand.NewSource(42))
-	intervals := make([][2]int, b.N)
-	for i := 0; i < b.N; i++ {
-		s := rng.Intn(1_000_000)
-		intervals[i] = [2]int{s, s + rng.Intn(100)}
+	intervals := genIntervals(benchSize, 100)
+	tree := defaultTree(benchSize)
+	fill := func() {
+		for _, iv := range intervals {
+			_ = tree.Insert(iv[0], iv[1], struct{}{})
+		}
 	}
-
-	tree := defaultTree(b.N)
-	for i := 0; i < b.N; i++ {
-		_ = tree.Insert(intervals[i][0], intervals[i][1], struct{}{})
-	}
+	fill()
 
 	b.ResetTimer()
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		_ = tree.Delete(intervals[i][0], intervals[i][1])
+		idx := i % benchSize
+		if i > 0 && idx == 0 {
+			b.StopTimer()
+			tree.Reset()
+			fill()
+			b.StartTimer()
+		}
+		_ = tree.Delete(intervals[idx][0], intervals[idx][1])
 	}
 }
 
@@ -265,9 +289,21 @@ func BenchmarkGCPause(b *testing.B) {
 	}
 
 	b.ResetTimer()
+
+	var total time.Duration
 	for i := 0; i < b.N; i++ {
 		start := time.Now()
 		runtime.GC()
-		b.ReportMetric(float64(time.Since(start).Microseconds()), "µs/GC")
+		total += time.Since(start)
 	}
+
+	b.StopTimer()
+	b.ReportMetric(float64(total.Nanoseconds())/1e3/float64(b.N), "µs/GC")
+
+	// Sanity check: the tree must still be live, so the heap should hold it.
+	var ms runtime.MemStats
+	runtime.ReadMemStats(&ms)
+	b.ReportMetric(float64(ms.HeapAlloc)/(1<<20), "heapMB")
+
+	runtime.KeepAlive(tree)
 }

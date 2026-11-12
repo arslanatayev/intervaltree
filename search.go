@@ -16,27 +16,10 @@ package intervaltree
 
 import "iter"
 
-// ExactMatch traverses the tree to determine if an interval matching [start, end] exactly exists.
+// ExactMatch reports whether an interval matching [start, end] exactly exists in the tree.
 func (t *IntervalTree[K, V]) ExactMatch(start, end K) bool {
-	target := Interval[K, V]{
-		Start: start,
-		End:   end,
-	}
-	currentIdx := t.rootIdx
-
-	for currentIdx != noIdx {
-		node := &t.nodes[currentIdx]
-		cmp := t.cmpIntervals(target, node.Interval)
-		if cmp < 0 {
-			currentIdx = node.leftIdx
-		} else if cmp > 0 {
-			currentIdx = node.rightIdx
-		} else {
-			return true
-		}
-	}
-
-	return false
+    _, ok := t.Get(start, end)
+    return ok
 }
 
 // Covers reports whether a single stored interval contains all of [start, end].

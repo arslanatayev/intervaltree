@@ -32,20 +32,26 @@ Absolute numbers for this library only. No comparison with other interval tree i
 
 Tested on **AMD Ryzen 7 7730U** (Linux amd64, Go 1.24):
 
-```text
-BenchmarkInsert-16                  1463577     1475 ns/op       52 B/op    0 allocs/op
-BenchmarkExactMatch-16              7317874    313.6 ns/op        0 B/op    0 allocs/op
-BenchmarkCovers-16                  6945052    323.5 ns/op        0 B/op    0 allocs/op
-BenchmarkOverlaps-16                3624873    567.8 ns/op        0 B/op    0 allocs/op
-BenchmarkOverlapsSlice-16           2165779    970.6 ns/op     1185 B/op    2 allocs/op
-BenchmarkGet-16                     7119218    711.8 ns/op        0 B/op    0 allocs/op
-BenchmarkComputeMerge-16            3748068    630.9 ns/op      405 B/op    1 allocs/op
-BenchmarkComputeContiguousMerge-16  3267121    634.7 ns/op      408 B/op    1 allocs/op
-BenchmarkMergeAll-16                    680  3514667 ns/op  1015809 B/op    4 allocs/op
-BenchmarkComputeSplit-16            1593070     1345 ns/op     1776 B/op    2 allocs/op
-BenchmarkDelete-16                  2997571     1066 ns/op        0 B/op    0 allocs/op
-BenchmarkGCPause-16                    8691   309375 ns/op        3 B/op    0 allocs/op    395.0 µs/GC
-```
+| Benchmark | Time per Operation (ns/op) | Memory Usage (B/op) | Allocations (allocs/op) |
+| :--- | :--- | :--- | :--- |
+| **`BenchmarkInsert`** | 817.7 ns | 0 B | 0 |
+| **`BenchmarkExactMatch`** | 314.1 ns | 0 B | 0 |
+| **`BenchmarkCovers`** | 334.1 ns | 0 B | 0 |
+| **`BenchmarkOverlaps`** | 1221 ns | 0 B | 0 |
+| **`BenchmarkOverlapsSlice`** | 1771 ns | 1185 B | 2 |
+| **`BenchmarkGet`** | 146.3 ns | 0 B | 0 |
+| **`BenchmarkComputeMerge`** | 594.1 ns | 405 B | 1 |
+| **`BenchmarkComputeContiguousMerge`** | 604.4 ns | 408 B | 1 |
+| **`BenchmarkMergeAll`** | 291264 ns | 491525 B | 2 |
+| **`BenchmarkComputeSplit`** | 1358 ns | 1776 B | 2 |
+| **`BenchmarkDelete`** | 369.9 ns | 0 B | 0 |
+
+### Garbage Collector & Memory Footprint
+
+| Benchmark | Pause Duration | Heap Allocation |
+| :--- | :--- | :--- |
+| **`BenchmarkGCPause`** (1M nodes) | 230.9 µs/GC | 49.85 MB |
+
 ![Image](assets/benchmark_output.png)
 
 ## Fuzz Testing
